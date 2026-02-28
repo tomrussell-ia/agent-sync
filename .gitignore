@@ -154,9 +154,6 @@ pyrightconfig.json
 .DS_Store
 Thumbs.db
 
-# Node.js (for prettier/markdown formatting)
-node_modules/
-
 # Project specific
 *.bak
 .temp/
