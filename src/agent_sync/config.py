@@ -42,6 +42,8 @@ COPILOT_MARKETPLACE_CACHE = COPILOT_DIR / "marketplace-cache"
 # ---------------------------------------------------------------------------
 
 CLAUDE_SETTINGS_JSON = CLAUDE_DIR / "settings.json"
+CLAUDE_CODE_CONFIG_JSON = HOME / ".claude.json"  # Claude Code's actual config
+CLAUDE_DESKTOP_CONFIG_JSON = HOME / "AppData" / "Roaming" / "Claude" / "claude_desktop_config.json"
 CLAUDE_COMMANDS_DIR = CLAUDE_DIR / "commands"
 CLAUDE_SKILLS_DIR = CLAUDE_DIR / "skills"
 CLAUDE_SYMLINK_SKILLS = AGENTS_DIR / ".claude" / "skills"

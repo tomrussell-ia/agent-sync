@@ -548,16 +548,48 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
     actions: list[str] = []
 
     # 1. Fix MCP configs
-    has_mcp_issues = any(
-        i.content_type == "mcp" and i.status in (SyncStatus.MISSING, SyncStatus.DRIFT)
-        for i in report.items
-    )
-    if has_mcp_issues and report.canonical.mcp_servers:
-        actions.append(write_copilot_mcp(report.canonical.mcp_servers, dry_run=dry_run))
-        actions.append(write_claude_mcp(report.canonical.mcp_servers, dry_run=dry_run))
-        actions.append(write_codex_mcp(report.canonical.mcp_servers, dry_run=dry_run))
+    mcp_actions = [item for item in report.items if item.content_type == "mcp" and item.fix_action]
+    if mcp_actions:
+        # Group servers by tool to batch updates
+        copilot_servers: list[McpServer] = []
+        codex_servers: list[McpServer] = []
+        claude_servers: list[McpServer] = []
+        
+        for item in mcp_actions:
+            if item.fix_action.action in (FixActionType.ADD_MCP, FixActionType.UPDATE_MCP):
+                # Find canonical server
+                canonical_server = None
+                for srv in report.canonical.mcp_servers:
+                    if srv.name == item.item_name:
+                        canonical_server = srv
+                        break
+                
+                if not canonical_server:
+                    continue
+                
+                # Route to appropriate tool
+                if item.tool == ToolName.COPILOT:
+                    copilot_servers.append(canonical_server)
+                elif item.tool == ToolName.CODEX:
+                    codex_servers.append(canonical_server)
+                elif item.tool == ToolName.CLAUDE:
+                    claude_servers.append(canonical_server)
+        
+        # Apply fixes per tool (batched)
+        if copilot_servers:
+            msg = write_copilot_mcp(copilot_servers, dry_run=dry_run)
+            actions.append(f"MCP/copilot: {msg}")
+        
+        if codex_servers:
+            msg = write_codex_mcp(codex_servers, dry_run=dry_run)
+            actions.append(f"MCP/codex: {msg}")
+        
+        if claude_servers:
+            actions.append(
+                f"MCP/claude: Skipped {len(claude_servers)} servers (manual configuration required via Claude Desktop)"
+            )
 
-    # 2. Fix additionalDirectories configs
+    # 2. Fix infrastructure (symlinks, additionalDirectories)
     claude_dirs_items = [
         i for i in report.items 
         if i.content_type == "config" and i.item_name == "claude-additional-dirs" 
@@ -592,3 +624,4 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
             actions.extend(sync_commands(report.canonical.commands, dry_run=dry_run))
 
     return actions
+

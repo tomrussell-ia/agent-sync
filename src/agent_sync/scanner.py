@@ -26,7 +26,9 @@ from agent_sync.config import (
     AGENTS_DIR,
     CANONICAL_COMMANDS_DIR,
     CANONICAL_SKILLS_DIR,
+    CLAUDE_CODE_CONFIG_JSON,
     CLAUDE_COMMANDS_DIR,
+    CLAUDE_DESKTOP_CONFIG_JSON,
     CLAUDE_SETTINGS_JSON,
     CLAUDE_SKILLS_DIR,
     CLAUDE_SYMLINK_SKILLS,
@@ -493,7 +495,7 @@ def scan_claude() -> ToolConfig:
         "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", ""
     )
 
-    # Detect MCP from permissions
+    # Detect MCP from permissions (settings.json)
     allow = settings.get("permissions", {}).get("allow", [])
     mcp_names: set[str] = set()
     for perm in allow:
@@ -503,6 +505,17 @@ def scan_claude() -> ToolConfig:
                 mcp_names.add(parts[1])
     for mcp_name in sorted(mcp_names):
         cfg.mcp_servers.append(McpServer(name=mcp_name, server_type=McpServerType.LOCAL))
+
+    # Also read MCP servers from Claude Code config if available
+    if CLAUDE_CODE_CONFIG_JSON.exists():
+        with contextlib.suppress(Exception):
+            claude_config = json.loads(CLAUDE_CODE_CONFIG_JSON.read_text(encoding="utf-8"))
+            # Claude Code stores user-level config in mcpServers at root
+            user_servers = claude_config.get("mcpServers", {})
+            for server_name in user_servers.keys():
+                # Add if not already detected from permissions
+                if not any(s.name == server_name for s in cfg.mcp_servers):
+                    cfg.mcp_servers.append(McpServer(name=server_name, server_type=McpServerType.LOCAL))
 
     # Additional directories - validate and count skills
     additional_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
