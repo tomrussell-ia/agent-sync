@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-sync"
+version = "0.1.0"
+description = "Dashboard and sync tool for AI agent configurations across Copilot CLI, Claude, Codex, and VS Code"
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.1",
+    "rich>=13.0",
+    "textual>=1.0",
+    "tomli>=2.0;python_version<'3.12'",
+    "tomli-w>=1.0",
+]
+
+[project.optional-dependencies]
+probe = [
+    "github-copilot-sdk>=0.1.20",
+    "mcp>=1.20",
+]
+
+[project.scripts]
+agent-sync = "agent_sync.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_sync"]
