@@ -1,107 +1,67 @@
-# Agent Sync - Custom AI Instructions
+# Agent Sync - Agent Instructions
 
 ## Project Overview
 
-Agent Sync is a Python-based dashboard and synchronization tool for managing AI agent configurations across multiple platforms including GitHub Copilot CLI, Claude, Codex, and VS Code.
+Agent Sync is a Python CLI tool and dashboard for managing and synchronizing AI agent configurations across multiple platforms (GitHub Copilot, Claude, Codex, VS Code).
 
-## Technology Stack
+**Key components:**
+- Scanner: Discovers agent configs
+- Sync Engine: Detects drift and generates fixes  
+- Dashboard: Interactive TUI (Textual)
+- Console: Rich terminal output
 
-- **Language**: Python 3.11+
-- **CLI Framework**: Click
-- **UI**: Textual (terminal UI framework)
-- **Output**: Rich (formatted console output)
-- **Build System**: Hatchling
+## Setup Commands
 
-## Code Organization
+```bash
+# Install dependencies
+uv sync
+
+# Run the dashboard
+uv run agent-sync
+
+# Run tests
+uv run pytest
+
+# Lint and format
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
+
+# Type check
+uv run mypy src/
+```
+
+## Code Style
+
+- **Python 3.11+** with type hints
+- Follow **ruff** lint rules (configured in pyproject.toml)
+- Use **dataclasses** for models
+- Rich/Textual for UI
+- Synchronous code only (no async)
+
+## File Organization
 
 ```
 src/agent_sync/
-├── cli.py              # Command-line interface entry point
-├── config.py           # Configuration management
-├── console.py          # Console utilities and helpers
-├── dashboard.py        # Main dashboard UI implementation
-├── formatters/         # Output formatting modules
-├── log_parser.py       # Log parsing utilities
-├── models.py           # Data models and schemas
-├── plugin_validator.py # Agent plugin validation logic
-├── prober.py           # Configuration validation and guidance
-├── scanner.py          # Configuration scanning
-├── serializers.py      # Data serialization utilities
-└── sync_engine.py      # Core synchronization engine
+├── models.py        # Dataclass models
+├── scanner.py       # Config discovery
+├── sync_engine.py   # Drift detection
+├── dashboard.py     # Textual TUI
+├── console.py       # Rich CLI output
+├── formatters/      # Config generators
+└── prober.py        # Validation only
 ```
 
-## Development Guidelines
+## Testing
 
-### Code Style
+- Write **pytest** tests for new features
+- Use **AAA pattern** (Arrange, Act, Assert)
+- Mock filesystem with `tmp_path` fixture
+- Keep coverage **>80%**
 
-- Follow PEP 8 style guidelines
-- Use type hints for function parameters and return values
-- Write docstrings for all public functions and classes
-- Keep functions focused and under 50 lines when possible
+## Boundaries
 
-### Architecture Patterns
-
-- **Separation of Concerns**: UI (dashboard), business logic (sync_engine), and data (models) are separated
-- **Configuration Management**: Centralized in config.py
-- **Plugin System**: Extensible validation and scanning capabilities
-
-### Testing
-
-- Tests are located in the `tests/` directory
-- Use pytest for testing
-- Write unit tests for new features
-- Aim for high test coverage on core logic
-
-### Dependencies
-
-- **Required**: click, rich, textual, tomli (Python <3.12), tomli-w
-- **Development**: pytest, ruff, mypy, pre-commit
-
-## Common Tasks
-
-### Adding New Agent Support
-
-1. Update models in `models.py`
-2. Add scanning logic in `scanner.py`
-3. Implement validation in `plugin_validator.py`
-4. Add sync logic to `sync_engine.py`
-
-### Extending the Dashboard
-
-1. Modify `dashboard.py` using Textual widgets
-2. Update console output in `console.py` for CLI output
-3. Add formatting as needed in `formatters/`
-
-### Configuration Changes
-
-1. Update config schema in `config.py`
-2. Handle migration if needed
-3. Update documentation
-
-## Important Constraints
-
-- **Python Version**: Must support Python 3.11+
-- **Cross-Platform**: Code should work on Windows, macOS, and Linux
-- **Terminal UI**: Must work in standard terminal environments
-- **No External Services**: Avoid requiring external API calls unless optional
-
-## Error Handling
-
-- Use appropriate exception types
-- Provide clear error messages for users
-- Log errors appropriately for debugging
-- Graceful degradation when optional features are unavailable
-
-## Documentation
-
-- Keep README.md up to date with new features
-- Update CONTRIBUTING.md for new development workflows
-- Document breaking changes clearly
-- Provide examples for new features
-
-## Security
-
-- Never commit API keys or tokens
-- Use environment variables for sensitive data
-- Validate all user input
-- Follow security best practices for file operations
+- **Never modify** `uv.lock` manually
+- **Don't commit** secrets or API keys
+- **Don't modify** installed agent binaries
+- **File operations** within workspace only
+- **Prober**: Validation only, no network calls
