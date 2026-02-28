@@ -16,20 +16,27 @@ Agent Sync provides a unified interface to manage and synchronize agent configur
 
 ## Installation
 
-### From Source
+Using [uv](https://docs.astral.sh/uv/) (recommended):
 
 ```bash
+# Install uv if you haven't already
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Unix
+# or
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Install agent-sync from source
 git clone https://github.com/tomrussell-ia/agent-sync.git
 cd agent-sync
-pip install -e .
+uv sync --all-extras  # Installs all dependencies including dev and probe
 ```
 
-### With Optional Dependencies
-
-For probing features (GitHub Copilot SDK and MCP):
+Using pip:
 
 ```bash
-pip install -e ".[probe]"
+# From source
+git clone https://github.com/tomrussell-ia/agent-sync.git
+cd agent-sync
+pip install -e ".[dev,probe]"
 ```
 
 ## Usage
@@ -44,11 +51,11 @@ agent-sync --help
 
 ## Requirements
 
-- Python 3.11 or higher
-- Dependencies:
-  - click >= 8.1
-  - rich >= 13.0
-  - textual >= 1.0
+- Python 3.11+ (3.14 recommended)
+- [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
+- Core dependencies: click, rich, textual, tomli-w
+- Optional: github-copilot-sdk, mcp (for probe features)
+- Development: pytest, ruff, mypy, pre-commit
 
 ## Project Structure
 
@@ -72,18 +79,43 @@ src/agent_sync/
 
 ### Setup Development Environment
 
-```bash
-# Install dependencies
-pip install -e ".[probe]"
+Using uv (recommended):
 
-# Install pre-commit hooks (recommended)
-pip install pre-commit
+```bash
+# Clone the repository
+git clone https://github.com/tomrussell-ia/agent-sync.git
+cd agent-sync
+
+# Install all dependencies (syncs from uv.lock)
+uv sync --all-extras
+
+# Install pre-commit hooks
+uv run pre-commit install
+```
+
+Using pip:
+
+```bash
+# Install with all dependencies
+pip install -e ".[dev,probe]"
+
+# Install pre-commit hooks
+pre-commit install
+```
 pre-commit install
 ```
 
 The pre-commit hooks will automatically run linting, formatting, and validation checks before each commit.
 
 ### Running Tests
+
+Using uv:
+
+```bash
+uv run pytest
+```
+
+Using pip:
 
 ```bash
 pytest
@@ -96,11 +128,20 @@ This project uses:
 - **Pre-commit hooks** for automated checks
 - **MyPy** for optional type checking
 
-Run checks manually:
+Run checks manually with uv:
 ```bash
 # Lint and format
+uv run ruff check src/ --fix
+uv run ruff format src/
+uv run mypy src/
+```
+
+Or directly if tools are installed globally:
+```bash
 ruff check src/ --fix
 ruff format src/
+mypy src/
+```
 
 # Run pre-commit on all files
 pre-commit run --all-files

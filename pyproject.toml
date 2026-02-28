@@ -6,12 +6,29 @@ build-backend = "hatchling.build"
 name = "agent-sync"
 version = "0.1.0"
 description = "Dashboard and sync tool for AI agent configurations across Copilot CLI, Claude, Codex, and VS Code"
+readme = "README.md"
+license = { text = "MIT" }
 requires-python = ">=3.11"
+authors = [
+    { name = "Tom Russell", email = "tomrussell-ia@users.noreply.github.com" }
+]
+keywords = ["ai", "agent", "copilot", "claude", "mcp", "sync", "dashboard"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
 dependencies = [
     "click>=8.1",
     "rich>=13.0",
     "textual>=1.0",
-    "tomli>=2.0;python_version<'3.12'",
     "tomli-w>=1.0",
 ]
 
@@ -20,6 +37,18 @@ probe = [
     "github-copilot-sdk>=0.1.20",
     "mcp>=1.20",
 ]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.8",
+    "mypy>=1.11",
+    "pre-commit>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/tomrussell-ia/agent-sync"
+Repository = "https://github.com/tomrussell-ia/agent-sync"
+Issues = "https://github.com/tomrussell-ia/agent-sync/issues"
 
 [project.scripts]
 agent-sync = "agent_sync.cli:main"
@@ -27,18 +56,127 @@ agent-sync = "agent_sync.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_sync"]
 
-[tool.black]
-line-length = 100
-target-version = ['py311', 'py312']
-include = '\.pyi?$'
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "C4", "UP"]
-ignore = ["E501"]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "UP",    # pyupgrade
+    "N",     # pep8-naming
+    "YTT",   # flake8-2020
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit
+    "FBT",   # flake8-boolean-trap
+    "A",     # flake8-builtins
+    "COM",   # flake8-commas
+    "C90",   # mccabe
+    "DJ",    # flake8-django
+    "EM",    # flake8-errmsg
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "G",     # flake8-logging-format
+    "PIE",   # flake8-pie
+    "T20",   # flake8-print
+    "PT",    # flake8-pytest-style
+    "Q",     # flake8-quotes
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "SLF",   # flake8-self
+    "SIM",   # flake8-simplify
+    "TID",   # flake8-tidy-imports
+    "ARG",   # flake8-unused-arguments
+    "PTH",   # flake8-use-pathlib
+    "ERA",   # eradicate
+    "PD",    # pandas-vet
+    "PL",    # pylint
+    "TRY",   # tryceratops
+    "NPY",   # numpy-specific
+    "PERF",  # perflint
+    "RUF",   # ruff-specific
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "S101",   # use of assert (OK in tests)
+    "PLR2004", # magic values (sometimes OK)
+    "PLR0913", # too many arguments (sometimes needed)
+    "COM812",  # trailing comma (conflicts with formatter)
+    "ISC001",  # implicit string concat (conflicts with formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",   # assert allowed in tests
+    "ARG",    # unused arguments OK in tests (fixtures)
+    "FBT",    # boolean trap OK in tests
+    "PLR2004", # magic values OK in tests
+    "S106",   # hardcoded password OK in tests
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agent_sync"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

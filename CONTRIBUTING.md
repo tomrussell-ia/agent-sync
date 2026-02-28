@@ -15,9 +15,36 @@ Thank you for your interest in contributing to Agent Sync! This document provide
 
 ## Development Setup
 
+Using uv (recommended):
+
+```bash
+# Install uv if needed
+curl -LsSf https://astral.sh/uv/install.sh | sh  # Unix
+# or
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
+
+# Install all dependencies including dev tools
+uv sync --all-extras
+
+# Install pre-commit hooks
+uv run pre-commit install
+
+# Run tests
+uv run pytest
+
+# Run linting
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
+```
+
+Using pip:
+
 ```bash
 # Install dependencies
-pip install -e ".[probe]"
+pip install -e ".[dev,probe]"
+
+# Install pre-commit hooks
+pre-commit install
 
 # Run tests
 pytest
