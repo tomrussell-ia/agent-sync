@@ -6,14 +6,9 @@ Also provides fix operations that apply changes to bring tools in sync.
 from __future__ import annotations
 
 from agent_sync.formatters.commands import (
-    claude_command_path,
-    codex_prompt_path,
     sync_commands,
 )
 from agent_sync.formatters.mcp import (
-    generate_claude_mcp_permissions,
-    generate_codex_mcp_sections,
-    generate_copilot_mcp,
     write_claude_mcp,
     write_codex_mcp,
     write_copilot_mcp,
@@ -33,7 +28,6 @@ from agent_sync.models import (
     ToolConfig,
     ToolName,
 )
-from agent_sync.scanner import _body_hash
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +110,7 @@ def _compare_mcp(
             if srv.command and tool_srv.command and srv.command != tool_srv.command:
                 drift_reasons.append(f"Command mismatch: {tool_srv.command}")
             if srv.args and tool_srv.args and srv.args != tool_srv.args:
-                drift_reasons.append(f"Args mismatch")
+                drift_reasons.append("Args mismatch")
 
             if drift_reasons:
                 items.append(
@@ -191,7 +185,9 @@ def _compare_skills(
             tool=ToolName.CLAUDE,
             status=SyncStatus.SYNCED if symlink_ok else SyncStatus.MISSING,
             detail=symlink_detail,
-            fix_action=None if symlink_ok else FixAction(
+            fix_action=None
+            if symlink_ok
+            else FixAction(
                 action=FixActionType.CREATE_SYMLINK,
                 tool=ToolName.CLAUDE,
                 content_type="symlink",
@@ -210,7 +206,9 @@ def _compare_skills(
             tool=ToolName.CLAUDE,
             status=SyncStatus.SYNCED if dirs_ok else SyncStatus.MISSING,
             detail=dirs_detail,
-            fix_action=None if dirs_ok else FixAction(
+            fix_action=None
+            if dirs_ok
+            else FixAction(
                 action=FixActionType.ADD_CONFIG,
                 tool=ToolName.CLAUDE,
                 content_type="config",
@@ -221,7 +219,7 @@ def _compare_skills(
     )
 
     # Per-skill status
-    canonical_names = {s.name for s in canonical.skills}
+    {s.name for s in canonical.skills}
     for skill in canonical.skills:
         for tool_name, tc in tool_configs.items():
             tool_skill_names = {s.name for s in tc.skills}
@@ -234,28 +232,27 @@ def _compare_skills(
                         status=SyncStatus.SYNCED,
                     )
                 )
+            # Codex can't easily link external skills
+            elif tool_name == ToolName.CODEX:
+                items.append(
+                    SyncItem(
+                        content_type="skill",
+                        item_name=skill.name,
+                        tool=tool_name,
+                        status=SyncStatus.NOT_APPLICABLE,
+                        detail="Codex uses built-in skills only",
+                    )
+                )
             else:
-                # Codex can't easily link external skills
-                if tool_name == ToolName.CODEX:
-                    items.append(
-                        SyncItem(
-                            content_type="skill",
-                            item_name=skill.name,
-                            tool=tool_name,
-                            status=SyncStatus.NOT_APPLICABLE,
-                            detail="Codex uses built-in skills only",
-                        )
+                items.append(
+                    SyncItem(
+                        content_type="skill",
+                        item_name=skill.name,
+                        tool=tool_name,
+                        status=SyncStatus.MISSING,
+                        detail=f"Not accessible in {tool_name.value}",
                     )
-                else:
-                    items.append(
-                        SyncItem(
-                            content_type="skill",
-                            item_name=skill.name,
-                            tool=tool_name,
-                            status=SyncStatus.MISSING,
-                            detail=f"Not accessible in {tool_name.value}",
-                        )
-                    )
+                )
 
     return items
 
@@ -427,28 +424,30 @@ def _compare_plugins(
 ) -> list[SyncItem]:
     """Compare product workflows against available ia-skills-hub plugins."""
     items: list[SyncItem] = []
-    
+
     # Only Copilot supports plugins currently
     if ToolName.COPILOT not in tool_configs:
         return items
-    
+
     # For each product workflow, check if there's a matching plugin
     for workflow in canonical.product_workflows:
         # Find matching plugin by heuristic name matching
         matching_plugin = None
-        product_tokens = workflow.name.lower().replace("next", "-next").replace("studio", "-studio").split("-")
-        
+        product_tokens = (
+            workflow.name.lower().replace("next", "-next").replace("studio", "-studio").split("-")
+        )
+
         for plugin in canonical.available_plugins:
             plugin_name_lower = plugin.name.lower()
             # Check if plugin name contains significant product tokens
             if any(token in plugin_name_lower for token in product_tokens if len(token) > 3):
                 matching_plugin = plugin
                 break
-        
+
         # If no matching plugin, skip (not all products need plugins)
         if not matching_plugin:
             continue
-        
+
         # Check installation status
         if workflow.copilot_plugin_installed:
             items.append(
@@ -477,7 +476,7 @@ def _compare_plugins(
                     ),
                 )
             )
-    
+
     return items
 
 
@@ -518,8 +517,7 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
 
     # 1. Fix MCP configs
     has_mcp_issues = any(
-        i.content_type == "mcp"
-        and i.status in (SyncStatus.MISSING, SyncStatus.DRIFT)
+        i.content_type == "mcp" and i.status in (SyncStatus.MISSING, SyncStatus.DRIFT)
         for i in report.items
     )
     if has_mcp_issues and report.canonical.mcp_servers:
@@ -529,8 +527,7 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
 
     # 2. Fix Claude skills symlink
     symlink_items = [
-        i for i in report.items
-        if i.content_type == "symlink" and i.status != SyncStatus.SYNCED
+        i for i in report.items if i.content_type == "symlink" and i.status != SyncStatus.SYNCED
     ]
     if symlink_items:
         actions.append(fix_claude_skills_symlink(dry_run=dry_run))
@@ -538,13 +535,11 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
     # 3. Fix commands (only if canonical commands exist)
     if report.canonical.commands:
         cmd_issues = [
-            i for i in report.items
-            if i.content_type == "command"
-            and i.status in (SyncStatus.MISSING, SyncStatus.DRIFT)
+            i
+            for i in report.items
+            if i.content_type == "command" and i.status in (SyncStatus.MISSING, SyncStatus.DRIFT)
         ]
         if cmd_issues:
-            actions.extend(
-                sync_commands(report.canonical.commands, dry_run=dry_run)
-            )
+            actions.extend(sync_commands(report.canonical.commands, dry_run=dry_run))
 
     return actions

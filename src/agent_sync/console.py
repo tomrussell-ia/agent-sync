@@ -7,18 +7,18 @@ import sys
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 from rich.tree import Tree
 
 from agent_sync.models import (
+    LogReport,
+    McpLogEvent,
     PluginValidation,
     ProbeReport,
-    ProbeResult,
     ProbeStatus,
     SyncReport,
     SyncStatus,
-    ToolName,
 )
+
 
 console = Console()
 
@@ -198,7 +198,9 @@ def print_report(report: SyncReport, *, items: list | None = None) -> None:
             branch.add(f"Skills: {len(wf.skills)}")
             _ok = "✅" if _USE_EMOJI else "[OK]"
             _na = "—" if _USE_EMOJI else "--"
-            plugin_status = f"{_ok} v{wf.copilot_plugin_version}" if wf.copilot_plugin_installed else _na
+            plugin_status = (
+                f"{_ok} v{wf.copilot_plugin_version}" if wf.copilot_plugin_installed else _na
+            )
             branch.add(f"Copilot Plugin: {plugin_status}")
         console.print(tree)
 
@@ -314,9 +316,7 @@ def print_probe_report(report: ProbeReport, *, verbose: bool = False) -> None:
 
     # MCP server probes
     mcp_results = [
-        r
-        for r in report.results
-        if r.target_type.value in ("mcp-http", "mcp-stdio", "mcp-local")
+        r for r in report.results if r.target_type.value in ("mcp-http", "mcp-stdio", "mcp-local")
     ]
     if mcp_results:
         table = Table(title="MCP Servers", show_lines=True)
@@ -350,9 +350,8 @@ def print_probe_report(report: ProbeReport, *, verbose: bool = False) -> None:
     console.print()
 
 
-def print_log_report(report: "LogReport") -> None:
+def print_log_report(report: LogReport) -> None:
     """Print log analysis results."""
-    from agent_sync.log_parser import LogReport
 
     console.print()
     console.print(
@@ -370,7 +369,7 @@ def print_log_report(report: "LogReport") -> None:
     # Recent MCP connection events (deduplicated, show latest per server)
     if report.mcp_events:
         # Keep only latest event per server
-        latest: dict[str, "McpLogEvent"] = {}
+        latest: dict[str, McpLogEvent] = {}
         for evt in report.mcp_events:
             key = f"{evt.server_name}:{evt.event_type}"
             latest[key] = evt
@@ -427,8 +426,12 @@ def print_plugin_report(results: list[PluginValidation]) -> None:
         table.add_row(
             v.name,
             _probe_icon(v.status),
-            ("✅" if _USE_EMOJI else "[OK]") if v.plugin_json_valid else (("❌" if _USE_EMOJI else "[ERR]") if v.has_plugin_json else _NA),
-            ("✅" if _USE_EMOJI else "[OK]") if v.mcp_json_valid else (("❌" if _USE_EMOJI else "[ERR]") if v.has_mcp_json else _NA),
+            ("✅" if _USE_EMOJI else "[OK]")
+            if v.plugin_json_valid
+            else (("❌" if _USE_EMOJI else "[ERR]") if v.has_plugin_json else _NA),
+            ("✅" if _USE_EMOJI else "[OK]")
+            if v.mcp_json_valid
+            else (("❌" if _USE_EMOJI else "[ERR]") if v.has_mcp_json else _NA),
             "; ".join(v.errors[:3]) if v.errors else "",
         )
     console.print(table)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 # ---------------------------------------------------------------------------
 # Root directories
 # ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ CODEX_SKILLS_DIR = CODEX_DIR / "skills"
 KNOWN_PRODUCTS = ["LoadSEERNext", "LSStudio", "atlas-viewer"]
 
 # ---------------------------------------------------------------------------
-# ia-skills-hub plugin repository  
+# ia-skills-hub plugin repository
 # ---------------------------------------------------------------------------
 
 # Try to discover ia-skills-hub repo location (common paths)

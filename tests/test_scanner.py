@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
+from agent_sync.models import McpServerType, ToolName
 from agent_sync.scanner import (
     _body_hash,
     _parse_frontmatter,
     _read_json,
-    scan_canonical_mcp,
 )
-from agent_sync.models import McpServerType, ToolName
 
 
 # ---------------------------------------------------------------------------
@@ -66,7 +64,7 @@ Body content here"""
 tags: [a, b, c]
 ---
 body"""
-        fm, body = _parse_frontmatter(text)
+        fm, _body = _parse_frontmatter(text)
         assert fm["tags"] == ["a", "b", "c"]
 
     def test_boolean_frontmatter(self):
@@ -75,7 +73,7 @@ enabled: true
 disabled: false
 ---
 body"""
-        fm, body = _parse_frontmatter(text)
+        fm, _body = _parse_frontmatter(text)
         assert fm["enabled"] is True
         assert fm["disabled"] is False
 
@@ -84,14 +82,14 @@ body"""
 name: "Hello World"
 ---
 body"""
-        fm, body = _parse_frontmatter(text)
+        fm, _body = _parse_frontmatter(text)
         assert fm["name"] == "Hello World"
 
     def test_missing_end_delimiter(self):
         text = """---
 name: Test
 No end delimiter"""
-        fm, body = _parse_frontmatter(text)
+        fm, _body = _parse_frontmatter(text)
         assert fm == {}
 
 

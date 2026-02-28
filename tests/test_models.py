@@ -1,5 +1,7 @@
 """Tests for agent-sync models."""
 
+from pathlib import Path
+
 from agent_sync.models import (
     CanonicalState,
     Command,
@@ -7,14 +9,11 @@ from agent_sync.models import (
     FixActionType,
     McpServer,
     McpServerType,
-    Skill,
     SyncItem,
     SyncReport,
     SyncStatus,
-    ToolConfig,
     ToolName,
 )
-from pathlib import Path
 
 
 class TestSyncStatus:

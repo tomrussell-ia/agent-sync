@@ -130,12 +130,22 @@ class TestComputedProperties:
     def test_sync_report_summary(self):
         items = [
             SyncItem("mcp", "a", ToolName.COPILOT, SyncStatus.SYNCED),
-            SyncItem("mcp", "b", ToolName.COPILOT, SyncStatus.DRIFT, fix_action=FixAction(
-                FixActionType.UPDATE_MCP, ToolName.COPILOT, "mcp", "b", "fix b"
-            )),
-            SyncItem("mcp", "c", ToolName.COPILOT, SyncStatus.MISSING, fix_action=FixAction(
-                FixActionType.ADD_MCP, ToolName.COPILOT, "mcp", "c", "fix c"
-            )),
+            SyncItem(
+                "mcp",
+                "b",
+                ToolName.COPILOT,
+                SyncStatus.DRIFT,
+                fix_action=FixAction(
+                    FixActionType.UPDATE_MCP, ToolName.COPILOT, "mcp", "b", "fix b"
+                ),
+            ),
+            SyncItem(
+                "mcp",
+                "c",
+                ToolName.COPILOT,
+                SyncStatus.MISSING,
+                fix_action=FixAction(FixActionType.ADD_MCP, ToolName.COPILOT, "mcp", "c", "fix c"),
+            ),
         ]
         report = _minimal_sync_report(items)
         d = to_dict(report)
@@ -148,10 +158,14 @@ class TestComputedProperties:
         assert s["overall_status"] == "drift"
 
     def test_probe_report_summary(self):
-        report = ProbeReport(results=[
-            ProbeResult("sdk", ProbeTargetType.COPILOT_SDK, status=ProbeStatus.OK),
-            ProbeResult("srv", ProbeTargetType.MCP_HTTP, status=ProbeStatus.ERROR, error_message="boom"),
-        ])
+        report = ProbeReport(
+            results=[
+                ProbeResult("sdk", ProbeTargetType.COPILOT_SDK, status=ProbeStatus.OK),
+                ProbeResult(
+                    "srv", ProbeTargetType.MCP_HTTP, status=ProbeStatus.ERROR, error_message="boom"
+                ),
+            ]
+        )
         d = to_dict(report)
         s = d["summary"]
         assert s["ok_count"] == 1
@@ -257,9 +271,15 @@ class TestFixAction:
 
     def test_all_action_types_exist(self):
         expected = {
-            "add-mcp", "update-mcp", "remove-mcp",
-            "create-symlink", "add-config",
-            "write-command", "overwrite-command", "copy-command", "reconcile-command",
+            "add-mcp",
+            "update-mcp",
+            "remove-mcp",
+            "create-symlink",
+            "add-config",
+            "write-command",
+            "overwrite-command",
+            "copy-command",
+            "reconcile-command",
             "install-plugin",
         }
         actual = {t.value for t in FixActionType}
@@ -355,8 +375,12 @@ class TestFilterHelpers:
         from agent_sync.cli import _filter_probe_results
 
         results = [
-            ProbeResult("sdk", ProbeTargetType.COPILOT_SDK, tool=ToolName.COPILOT, status=ProbeStatus.OK),
-            ProbeResult("srv", ProbeTargetType.MCP_HTTP, tool=ToolName.CLAUDE, status=ProbeStatus.OK),
+            ProbeResult(
+                "sdk", ProbeTargetType.COPILOT_SDK, tool=ToolName.COPILOT, status=ProbeStatus.OK
+            ),
+            ProbeResult(
+                "srv", ProbeTargetType.MCP_HTTP, tool=ToolName.CLAUDE, status=ProbeStatus.OK
+            ),
         ]
         filtered = _filter_probe_results(results, tool="copilot")
         assert len(filtered) == 1

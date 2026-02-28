@@ -13,11 +13,10 @@ from rich.text import Text
 from rich.tree import Tree
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import VerticalScroll
 from textual.widgets import Footer, Header, Static, TabbedContent, TabPane
 
 from agent_sync.models import (
-    CanonicalState,
     SyncReport,
     SyncStatus,
     ToolName,

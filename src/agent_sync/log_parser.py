@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agent_sync.config import CODEX_DIR, COPILOT_DIR
 
+
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
@@ -50,20 +51,12 @@ class LogReport:
     @property
     def connected_servers(self) -> list[str]:
         """Server names that have at least one 'connected' event."""
-        return list({
-            e.server_name
-            for e in self.mcp_events
-            if e.event_type == "connected"
-        })
+        return list({e.server_name for e in self.mcp_events if e.event_type == "connected"})
 
     @property
     def errored_servers(self) -> list[str]:
         """Server names that have at least one 'errored' event."""
-        return list({
-            e.server_name
-            for e in self.mcp_events
-            if e.event_type == "errored"
-        })
+        return list({e.server_name for e in self.mcp_events if e.event_type == "errored"})
 
     @property
     def auth_errors(self) -> list[LogError]:
@@ -171,9 +164,7 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
 # ---------------------------------------------------------------------------
 
 # "2026-01-27T20:08:54.828398Z ERROR codex_core::auth: Failed to refresh token: ..."
-_RE_CODEX_AUTH_ERROR = re.compile(
-    r"^(?P<ts>[\dT:.Z-]+)\s+ERROR\s+codex_core::auth:\s+(?P<msg>.+)$"
-)
+_RE_CODEX_AUTH_ERROR = re.compile(r"^(?P<ts>[\dT:.Z-]+)\s+ERROR\s+codex_core::auth:\s+(?P<msg>.+)$")
 
 # "2026-01-27T... ERROR codex_core::models_manager::manager: ..."
 _RE_CODEX_MODEL_ERROR = re.compile(

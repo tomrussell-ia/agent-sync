@@ -71,7 +71,8 @@ def to_dict(obj: Any) -> dict[str, Any]:
       recompute them.
     """
     if not dataclasses.is_dataclass(obj) or isinstance(obj, type):
-        raise TypeError(f"Expected a dataclass instance, got {type(obj).__name__}")
+        msg = f"Expected a dataclass instance, got {type(obj).__name__}"
+        raise TypeError(msg)
 
     raw = dataclasses.asdict(obj)
     result = _normalize(raw)

@@ -10,7 +10,6 @@ from pathlib import Path
 from agent_sync.config import (
     AGENTS_DIR,
     CANONICAL_SKILLS_DIR,
-    CLAUDE_DIR,
     CLAUDE_SETTINGS_JSON,
     CLAUDE_SYMLINK_SKILLS,
 )
@@ -91,7 +90,7 @@ def fix_claude_skills_symlink(*, dry_run: bool = False) -> str:
         if CLAUDE_SYMLINK_SKILLS.is_dir() and not _is_junction(CLAUDE_SYMLINK_SKILLS):
             # Regular directory — don't delete, might have content
             return f"Skipped: {CLAUDE_SYMLINK_SKILLS} is a real directory, won't overwrite"
-        elif _is_junction(CLAUDE_SYMLINK_SKILLS) or CLAUDE_SYMLINK_SKILLS.is_symlink():
+        if _is_junction(CLAUDE_SYMLINK_SKILLS) or CLAUDE_SYMLINK_SKILLS.is_symlink():
             os.remove(str(CLAUDE_SYMLINK_SKILLS))
 
     _create_junction(CANONICAL_SKILLS_DIR, CLAUDE_SYMLINK_SKILLS)

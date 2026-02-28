@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 import sys
 from pathlib import Path
+
 
 if sys.version_info >= (3, 12):
     import tomllib
@@ -20,12 +20,13 @@ else:
     except ModuleNotFoundError:
         import tomli as tomllib  # type: ignore[import-untyped, no-redef]
 
+import contextlib
+
 from agent_sync.config import (
     AGENTS_DIR,
     CANONICAL_COMMANDS_DIR,
     CANONICAL_SKILLS_DIR,
     CLAUDE_COMMANDS_DIR,
-    CLAUDE_DIR,
     CLAUDE_SETTINGS_JSON,
     CLAUDE_SKILLS_DIR,
     CLAUDE_SYMLINK_SKILLS,
@@ -78,7 +79,7 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
         return {}, text
 
     fm_block = text[3:end].strip()
-    body = text[end + 4:].strip()
+    body = text[end + 4 :].strip()
 
     fm: dict = {}
     for line in fm_block.splitlines():
@@ -95,9 +96,9 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
             fm[key] = [i.strip().strip("'\"") for i in items if i.strip()]
         elif value.lower() in ("true", "false"):
             fm[key] = value.lower() == "true"
-        elif value.startswith('"') and value.endswith('"'):
-            fm[key] = value[1:-1]
-        elif value.startswith("'") and value.endswith("'"):
+        elif (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
             fm[key] = value[1:-1]
         else:
             fm[key] = value
@@ -272,10 +273,8 @@ def _scan_commands_dir(
             sync_to_raw = [t.strip() for t in sync_to_raw.split(",")]
         sync_to = []
         for t in sync_to_raw:
-            try:
+            with contextlib.suppress(ValueError):
                 sync_to.append(ToolName(t))
-            except ValueError:
-                pass
 
         commands.append(
             Command(
@@ -341,9 +340,7 @@ def scan_product_workflows() -> list[ProductWorkflow]:
         if skills_dir.exists():
             for sd in sorted(skills_dir.iterdir()):
                 if sd.is_dir() and (sd / SKILL_FILE).exists():
-                    fm, _ = _parse_frontmatter(
-                        (sd / SKILL_FILE).read_text(encoding="utf-8")
-                    )
+                    fm, _ = _parse_frontmatter((sd / SKILL_FILE).read_text(encoding="utf-8"))
                     wf.skills.append(
                         Skill(name=sd.name, path=sd, description=fm.get("description", ""))
                     )
@@ -359,8 +356,12 @@ def scan_product_workflows() -> list[ProductWorkflow]:
                         pdata = _read_json(pjson)
                         # Heuristic: check if the plugin name references this product
                         pname = pdata.get("name", "").lower()
-                        product_slug = d.name.lower().replace("next", "-next").replace("studio", "-studio")
-                        if any(token in pname for token in product_slug.split("-") if len(token) > 3):
+                        product_slug = (
+                            d.name.lower().replace("next", "-next").replace("studio", "-studio")
+                        )
+                        if any(
+                            token in pname for token in product_slug.split("-") if len(token) > 3
+                        ):
                             wf.copilot_plugin_installed = True
                             wf.copilot_plugin_version = pdata.get("version", "")
 
@@ -371,22 +372,22 @@ def scan_product_workflows() -> list[ProductWorkflow]:
 def scan_available_plugins() -> list[Plugin]:
     """Scan ia-skills-hub repository for available Copilot plugins."""
     plugins: list[Plugin] = []
-    
+
     if not IA_SKILLS_HUB_DIR or not IA_SKILLS_HUB_DIR.exists():
         return plugins
-    
+
     plugins_dir = IA_SKILLS_HUB_DIR / "plugins"
     if not plugins_dir.exists():
         return plugins
-    
+
     for plugin_path in sorted(plugins_dir.iterdir()):
         if not plugin_path.is_dir():
             continue
-            
+
         plugin_json = plugin_path / "plugin.json"
         if not plugin_json.exists():
             continue
-        
+
         try:
             pdata = _read_json(plugin_json)
             plugins.append(
@@ -401,7 +402,7 @@ def scan_available_plugins() -> list[Plugin]:
         except Exception:
             # Skip malformed plugin.json files
             continue
-    
+
     return plugins
 
 
@@ -437,7 +438,7 @@ def scan_copilot() -> ToolConfig:
     # Installed plugin skills
     if COPILOT_INSTALLED_PLUGINS.exists():
         for plugin_dir in COPILOT_INSTALLED_PLUGINS.rglob("plugin.json"):
-            pdata = _read_json(plugin_dir)
+            _read_json(plugin_dir)
             skills_dir = plugin_dir.parent / "skills"
             if skills_dir.exists():
                 for sd in skills_dir.iterdir():
@@ -448,9 +449,7 @@ def scan_copilot() -> ToolConfig:
             agents_dir = plugin_dir.parent / "agents"
             if agents_dir.exists():
                 for f in agents_dir.rglob("*.md"):
-                    cfg.agents.append(
-                        Agent(name=f.stem, path=f, format="markdown")
-                    )
+                    cfg.agents.append(Agent(name=f.stem, path=f, format="markdown"))
 
     return cfg
 
@@ -480,9 +479,7 @@ def scan_claude() -> ToolConfig:
             if len(parts) >= 2:
                 mcp_names.add(parts[1])
     for mcp_name in sorted(mcp_names):
-        cfg.mcp_servers.append(
-            McpServer(name=mcp_name, server_type=McpServerType.LOCAL)
-        )
+        cfg.mcp_servers.append(McpServer(name=mcp_name, server_type=McpServerType.LOCAL))
 
     # Additional directories
     additional_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
@@ -492,9 +489,7 @@ def scan_claude() -> ToolConfig:
     if CLAUDE_SYMLINK_SKILLS.exists():
         cfg.extra_info["skills_symlink"] = str(CLAUDE_SYMLINK_SKILLS)
         if CLAUDE_SYMLINK_SKILLS.is_symlink() or CLAUDE_SYMLINK_SKILLS.is_junction():
-            cfg.extra_info["skills_symlink_target"] = str(
-                CLAUDE_SYMLINK_SKILLS.resolve()
-            )
+            cfg.extra_info["skills_symlink_target"] = str(CLAUDE_SYMLINK_SKILLS.resolve())
         # Count skills accessible via symlink
         for sd in CLAUDE_SYMLINK_SKILLS.iterdir():
             if sd.is_dir() and (sd / SKILL_FILE).exists():
@@ -550,9 +545,7 @@ def scan_codex() -> ToolConfig:
     # Skills
     if CODEX_SKILLS_DIR.exists():
         for sd in CODEX_SKILLS_DIR.rglob(SKILL_FILE):
-            cfg.skills.append(
-                Skill(name=sd.parent.name, path=sd.parent)
-            )
+            cfg.skills.append(Skill(name=sd.parent.name, path=sd.parent))
 
     return cfg
 

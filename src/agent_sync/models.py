@@ -7,8 +7,8 @@ tool configurations, product workflows, and sync state.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 
 
@@ -17,7 +17,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
-class ToolName(str, Enum):
+class ToolName(StrEnum):
     """Supported AI coding tools."""
 
     COPILOT = "copilot"
@@ -26,7 +26,7 @@ class ToolName(str, Enum):
     VSCODE = "vscode"
 
 
-class SyncStatus(str, Enum):
+class SyncStatus(StrEnum):
     """Sync comparison result for a single item."""
 
     SYNCED = "synced"  # canonical == tool-specific
@@ -36,7 +36,7 @@ class SyncStatus(str, Enum):
     NOT_APPLICABLE = "n/a"  # tool doesn't support this content type
 
 
-class McpServerType(str, Enum):
+class McpServerType(StrEnum):
     """Transport type for an MCP server connection."""
 
     HTTP = "http"
@@ -44,7 +44,7 @@ class McpServerType(str, Enum):
     LOCAL = "local"
 
 
-class ProbeStatus(str, Enum):
+class ProbeStatus(StrEnum):
     """Result of a runtime probe against a target."""
 
     OK = "ok"
@@ -54,7 +54,7 @@ class ProbeStatus(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
-class ProbeTargetType(str, Enum):
+class ProbeTargetType(StrEnum):
     """What kind of entity was probed."""
 
     COPILOT_SDK = "copilot-sdk"
@@ -66,7 +66,7 @@ class ProbeTargetType(str, Enum):
     CLI_VERSION = "cli-version"
 
 
-class FixActionType(str, Enum):
+class FixActionType(StrEnum):
     """Machine-parseable category for an auto-fix action."""
 
     ADD_MCP = "add-mcp"
@@ -326,9 +326,7 @@ class ProbeReport:
 
     results: list[ProbeResult] = field(default_factory=list)
     plugin_validations: list[PluginValidation] = field(default_factory=list)
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     @property
     def ok_count(self) -> int:

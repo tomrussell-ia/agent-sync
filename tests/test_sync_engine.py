@@ -96,8 +96,7 @@ class TestMcpSync:
         )
         mcp_items = [i for i in report.items if i.content_type == "mcp"]
         copilot_missing = [
-            i for i in mcp_items
-            if i.tool == ToolName.COPILOT and i.status == SyncStatus.MISSING
+            i for i in mcp_items if i.tool == ToolName.COPILOT and i.status == SyncStatus.MISSING
         ]
         assert len(copilot_missing) >= 1
 
@@ -120,8 +119,7 @@ class TestMcpSync:
         )
         mcp_items = [i for i in report.items if i.content_type == "mcp"]
         drift = [
-            i for i in mcp_items
-            if i.tool == ToolName.COPILOT and i.status == SyncStatus.DRIFT
+            i for i in mcp_items if i.tool == ToolName.COPILOT and i.status == SyncStatus.DRIFT
         ]
         assert len(drift) >= 1
 
@@ -155,7 +153,8 @@ class TestMcpSync:
         )
         mcp_items = [i for i in report.items if i.content_type == "mcp"]
         copilot_na = [
-            i for i in mcp_items
+            i
+            for i in mcp_items
             if i.tool == ToolName.COPILOT and i.status == SyncStatus.NOT_APPLICABLE
         ]
         assert len(copilot_na) >= 1
@@ -231,8 +230,7 @@ class TestCommandCrossComparison:
         report = build_sync_report(canonical, tool_configs)
         cmd_items = [i for i in report.items if i.content_type == "command"]
         missing = [
-            i for i in cmd_items
-            if i.tool == ToolName.CODEX and i.status == SyncStatus.MISSING
+            i for i in cmd_items if i.tool == ToolName.CODEX and i.status == SyncStatus.MISSING
         ]
         assert len(missing) >= 1
 
@@ -253,9 +251,9 @@ class TestOverallStatus:
         }
         report = build_sync_report(canonical, tool_configs)
         # Only infrastructure items (symlink, additional dirs)
-        non_infra = [
-            i for i in report.items
-            if i.content_type not in ("symlink", "config")
-        ]
+        non_infra = [i for i in report.items if i.content_type not in ("symlink", "config")]
         # With no canonical content, there should be no mcp/skill/command items
-        assert all(i.content_type in ("symlink", "config") for i in report.items) or len(non_infra) == 0
+        assert (
+            all(i.content_type in ("symlink", "config") for i in report.items)
+            or len(non_infra) == 0
+        )

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
+
 
 if sys.version_info >= (3, 12):
     import tomllib
@@ -24,7 +24,7 @@ from agent_sync.config import (
     CODEX_CONFIG_TOML,
     COPILOT_MCP_CONFIG_JSON,
 )
-from agent_sync.models import McpServer, McpServerType, ToolName
+from agent_sync.models import McpServer, ToolName
 
 
 # ---------------------------------------------------------------------------
@@ -136,11 +136,11 @@ def generate_claude_mcp_permissions(servers: list[McpServer]) -> list[str]:
 
 def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     """Write Claude MCP permissions to settings.json.
-    
+
     Claude Code stores MCP server permissions in the permissions.allow array
     rather than as full server definitions. This function updates that array
     while preserving other permissions and settings.
-    
+
     Returns description of what was/would be done.
     """
     perms = generate_claude_mcp_permissions(servers)

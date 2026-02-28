@@ -23,6 +23,7 @@ from rich.console import Console
 
 from agent_sync import __version__
 
+
 console = Console()
 
 
@@ -31,26 +32,31 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 _TOOL_CHOICE = click.Choice(["copilot", "claude", "codex"], case_sensitive=False)
-_TYPE_CHOICE = click.Choice(["mcp", "skill", "command", "plugin", "infrastructure"], case_sensitive=False)
+_TYPE_CHOICE = click.Choice(
+    ["mcp", "skill", "command", "plugin", "infrastructure"], case_sensitive=False
+)
 
 
 def _output_options(fn):
     """Add --json and --quiet flags to a command."""
-    fn = click.option("--json", "json_output", is_flag=True, help="Emit structured JSON to stdout")(fn)
-    fn = click.option("--quiet", "-q", is_flag=True, help="Suppress informational output")(fn)
-    return fn
+    fn = click.option("--json", "json_output", is_flag=True, help="Emit structured JSON to stdout")(
+        fn
+    )
+    return click.option("--quiet", "-q", is_flag=True, help="Suppress informational output")(fn)
 
 
 def _filter_options(fn):
     """Add --tool and --type filter flags to a command."""
     fn = click.option("--tool", type=_TOOL_CHOICE, default=None, help="Filter to a single tool")(fn)
-    fn = click.option("--type", "content_type", type=_TYPE_CHOICE, default=None, help="Filter to a content type")(fn)
-    return fn
+    return click.option(
+        "--type", "content_type", type=_TYPE_CHOICE, default=None, help="Filter to a content type"
+    )(fn)
 
 
 # ---------------------------------------------------------------------------
 # Filtering helpers
 # ---------------------------------------------------------------------------
+
 
 def _filter_items(items, tool: str | None, content_type: str | None):
     """Return items matching --tool and --type filters."""
@@ -227,7 +233,9 @@ EXAMPLES
 @_output_options
 @_filter_options
 @click.pass_context
-def check(ctx: click.Context, json_output: bool, quiet: bool, tool: str | None, content_type: str | None) -> None:
+def check(
+    ctx: click.Context, json_output: bool, quiet: bool, tool: str | None, content_type: str | None
+) -> None:
     """Compare canonical ~/.agents/ config against all tool configs.
 
     Scans MCP servers, skills, commands, and infrastructure. Prints a
@@ -252,13 +260,11 @@ def check(ctx: click.Context, json_output: bool, quiet: bool, tool: str | None, 
         click.echo(json.dumps(payload, indent=2))
     elif not quiet:
         from agent_sync.console import print_report
+
         print_report(report, items=filtered_items)
 
     # Exit with non-zero if filtered set has issues
-    has_issues = any(
-        i.status.value in ("drift", "missing")
-        for i in filtered_items
-    )
+    has_issues = any(i.status.value in ("drift", "missing") for i in filtered_items)
     if has_issues:
         sys.exit(1)
 
@@ -297,7 +303,14 @@ EXAMPLES
 @_output_options
 @_filter_options
 @click.pass_context
-def fix(ctx: click.Context, dry_run: bool, json_output: bool, quiet: bool, tool: str | None, content_type: str | None) -> None:
+def fix(
+    ctx: click.Context,
+    dry_run: bool,
+    json_output: bool,
+    quiet: bool,
+    tool: str | None,
+    content_type: str | None,
+) -> None:
     """Apply all sync fixes to bring tools in line with canonical config.
 
     Rewrites MCP configs, creates symlinks, and syncs commands based on
@@ -506,10 +519,12 @@ def probe(
 
     if log_history:
         from agent_sync.log_parser import parse_logs
+
         log_report_obj = parse_logs()
 
     if plugins:
         from agent_sync.plugin_validator import validate_plugins
+
         plugin_results_list = validate_plugins()
 
     if json_output:
@@ -525,6 +540,7 @@ def probe(
         click.echo(json.dumps(payload, indent=2))
     elif not quiet:
         from agent_sync.console import print_log_report, print_plugin_report, print_probe_report
+
         print_probe_report(probe_report, verbose=ctx.obj.get("verbose", False))
 
         if log_report_obj is not None:

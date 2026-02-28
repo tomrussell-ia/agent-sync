@@ -12,6 +12,7 @@ from pathlib import Path
 from agent_sync.config import COPILOT_INSTALLED_PLUGINS
 from agent_sync.models import PluginValidation
 
+
 # ---------------------------------------------------------------------------
 # Required / expected keys
 # ---------------------------------------------------------------------------
@@ -89,9 +90,7 @@ def _validate_mcp_json(path: Path) -> tuple[bool, list[str]]:
                 continue
             # Must have either url or command
             if not cfg.get("url") and not cfg.get("command"):
-                errors.append(
-                    f"Server '{name}' missing both 'url' and 'command'"
-                )
+                errors.append(f"Server '{name}' missing both 'url' and 'command'")
 
     return len(errors) == 0, errors
 
