@@ -435,6 +435,28 @@ def scan_copilot() -> ToolConfig:
     cfg.extra_info["marketplaces"] = str(len(config_data.get("marketplaces", {})))
     cfg.extra_info["installed_plugins"] = str(len(config_data.get("installed_plugins", [])))
 
+    # Additional directories - validate and count skills
+    additional_dirs = config_data.get("additionalDirectories", [])
+    cfg.extra_info["additional_directories"] = ", ".join(additional_dirs)
+    
+    # Validate additionalDirectories and count accessible skills
+    canonical_skills = CANONICAL_SKILLS_DIR.resolve()
+    for d in additional_dirs:
+        d_path = Path(d)
+        if not d_path.exists():
+            cfg.extra_info["additional_dirs_warning"] = f"Path does not exist: {d}"
+            continue
+            
+        resolved = d_path.resolve()
+        
+        # If pointing to canonical skills directory
+        if resolved == canonical_skills:
+            # Add all canonical skills as accessible
+            for sd in canonical_skills.iterdir():
+                if sd.is_dir() and (sd / SKILL_FILE).exists():
+                    if not any(s.name == sd.name for s in cfg.skills):
+                        cfg.skills.append(Skill(name=sd.name, path=sd))
+
     # Installed plugin skills
     if COPILOT_INSTALLED_PLUGINS.exists():
         for plugin_dir in COPILOT_INSTALLED_PLUGINS.rglob("plugin.json"):
@@ -443,7 +465,8 @@ def scan_copilot() -> ToolConfig:
             if skills_dir.exists():
                 for sd in skills_dir.iterdir():
                     if sd.is_dir() and (sd / SKILL_FILE).exists():
-                        cfg.skills.append(Skill(name=sd.name, path=sd))
+                        if not any(s.name == sd.name for s in cfg.skills):
+                            cfg.skills.append(Skill(name=sd.name, path=sd))
 
             # Agents
             agents_dir = plugin_dir.parent / "agents"
@@ -481,9 +504,34 @@ def scan_claude() -> ToolConfig:
     for mcp_name in sorted(mcp_names):
         cfg.mcp_servers.append(McpServer(name=mcp_name, server_type=McpServerType.LOCAL))
 
-    # Additional directories
+    # Additional directories - validate and count skills
     additional_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
     cfg.extra_info["additional_directories"] = ", ".join(additional_dirs)
+    
+    # Validate additionalDirectories and count accessible skills
+    canonical_skills = CANONICAL_SKILLS_DIR.resolve()
+    for d in additional_dirs:
+        d_path = Path(d)
+        if not d_path.exists():
+            cfg.extra_info["additional_dirs_warning"] = f"Path does not exist: {d}"
+            continue
+            
+        resolved = d_path.resolve()
+        
+        # If pointing to canonical skills directory
+        if resolved == canonical_skills:
+            # Add all canonical skills as accessible
+            for sd in canonical_skills.iterdir():
+                if sd.is_dir() and (sd / SKILL_FILE).exists():
+                    if not any(s.name == sd.name for s in cfg.skills):
+                        cfg.skills.append(Skill(name=sd.name, path=sd))
+        # If pointing to .agents root
+        elif resolved == AGENTS_DIR.resolve() and canonical_skills.exists():
+            # Add all canonical skills as accessible via subdirectory
+            for sd in canonical_skills.iterdir():
+                if sd.is_dir() and (sd / SKILL_FILE).exists():
+                    if not any(s.name == sd.name for s in cfg.skills):
+                        cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Check symlink to skills
     if CLAUDE_SYMLINK_SKILLS.exists():
@@ -493,7 +541,8 @@ def scan_claude() -> ToolConfig:
         # Count skills accessible via symlink
         for sd in CLAUDE_SYMLINK_SKILLS.iterdir():
             if sd.is_dir() and (sd / SKILL_FILE).exists():
-                cfg.skills.append(Skill(name=sd.name, path=sd))
+                if not any(s.name == sd.name for s in cfg.skills):
+                    cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Direct skills in ~/.claude/skills/
     if CLAUDE_SKILLS_DIR.exists():

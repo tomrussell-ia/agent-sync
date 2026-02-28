@@ -16,7 +16,10 @@ from agent_sync.formatters.mcp import (
 from agent_sync.formatters.skills import (
     check_claude_additional_dirs,
     check_claude_skills_symlink,
+    check_copilot_additional_dirs,
+    fix_claude_additional_dirs,
     fix_claude_skills_symlink,
+    fix_copilot_additional_dirs,
 )
 from agent_sync.models import (
     CanonicalState,
@@ -176,7 +179,7 @@ def _compare_skills(
     """Compare skill availability across tools."""
     items: list[SyncItem] = []
 
-    # Check symlink health
+    # Check symlink health (for Claude symlink-based access)
     symlink_ok, symlink_detail = check_claude_skills_symlink()
     items.append(
         SyncItem(
@@ -192,44 +195,66 @@ def _compare_skills(
                 tool=ToolName.CLAUDE,
                 content_type="symlink",
                 target="claude-skills-symlink",
-                detail="Create junction .agents/.claude/skills/ \u2192 .agents/skills/",
+                detail="Create junction .agents/.claude/skills/ → .agents/skills/",
             ),
         )
     )
 
-    # Check additionalDirectories
-    dirs_ok, dirs_detail = check_claude_additional_dirs()
+    # Check Claude additionalDirectories
+    claude_dirs_ok, claude_dirs_detail = check_claude_additional_dirs()
     items.append(
         SyncItem(
             content_type="config",
             item_name="claude-additional-dirs",
             tool=ToolName.CLAUDE,
-            status=SyncStatus.SYNCED if dirs_ok else SyncStatus.MISSING,
-            detail=dirs_detail,
+            status=SyncStatus.SYNCED if claude_dirs_ok else SyncStatus.MISSING,
+            detail=claude_dirs_detail,
             fix_action=None
-            if dirs_ok
+            if claude_dirs_ok
             else FixAction(
                 action=FixActionType.ADD_CONFIG,
                 tool=ToolName.CLAUDE,
                 content_type="config",
                 target="claude-additional-dirs",
-                detail="Add .agents to Claude additionalDirectories",
+                detail="Add .agents/skills to Claude additionalDirectories",
             ),
         )
     )
 
-    # Per-skill status
-    {s.name for s in canonical.skills}
+    # Check Copilot additionalDirectories
+    copilot_dirs_ok, copilot_dirs_detail = check_copilot_additional_dirs()
+    items.append(
+        SyncItem(
+            content_type="config",
+            item_name="copilot-additional-dirs",
+            tool=ToolName.COPILOT,
+            status=SyncStatus.SYNCED if copilot_dirs_ok else SyncStatus.MISSING,
+            detail=copilot_dirs_detail,
+            fix_action=None
+            if copilot_dirs_ok
+            else FixAction(
+                action=FixActionType.ADD_CONFIG,
+                tool=ToolName.COPILOT,
+                content_type="config",
+                target="copilot-additional-dirs",
+                detail="Add .agents/skills to Copilot additionalDirectories",
+            ),
+        )
+    )
+
+    # Per-skill status - now accurately reflects scanner results
     for skill in canonical.skills:
         for tool_name, tc in tool_configs.items():
             tool_skill_names = {s.name for s in tc.skills}
             if skill.name in tool_skill_names:
+                # Scanner found this skill accessible (via additionalDirectories, symlink, or direct)
                 items.append(
                     SyncItem(
                         content_type="skill",
                         item_name=skill.name,
                         tool=tool_name,
                         status=SyncStatus.SYNCED,
+                        detail="Accessible",
                     )
                 )
             # Codex can't easily link external skills
@@ -244,13 +269,20 @@ def _compare_skills(
                     )
                 )
             else:
+                # Skill not found by scanner - report as missing with actionable detail
+                detail = f"Not accessible in {tool_name.value}"
+                if tool_name == ToolName.CLAUDE and not claude_dirs_ok:
+                    detail = "Configure additionalDirectories to access"
+                elif tool_name == ToolName.COPILOT and not copilot_dirs_ok:
+                    detail = "Configure additionalDirectories to access"
+                
                 items.append(
                     SyncItem(
                         content_type="skill",
                         item_name=skill.name,
                         tool=tool_name,
                         status=SyncStatus.MISSING,
-                        detail=f"Not accessible in {tool_name.value}",
+                        detail=detail,
                     )
                 )
 
@@ -525,14 +557,31 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
         actions.append(write_claude_mcp(report.canonical.mcp_servers, dry_run=dry_run))
         actions.append(write_codex_mcp(report.canonical.mcp_servers, dry_run=dry_run))
 
-    # 2. Fix Claude skills symlink
+    # 2. Fix additionalDirectories configs
+    claude_dirs_items = [
+        i for i in report.items 
+        if i.content_type == "config" and i.item_name == "claude-additional-dirs" 
+        and i.status != SyncStatus.SYNCED
+    ]
+    if claude_dirs_items:
+        actions.append(fix_claude_additional_dirs(dry_run=dry_run))
+
+    copilot_dirs_items = [
+        i for i in report.items 
+        if i.content_type == "config" and i.item_name == "copilot-additional-dirs" 
+        and i.status != SyncStatus.SYNCED
+    ]
+    if copilot_dirs_items:
+        actions.append(fix_copilot_additional_dirs(dry_run=dry_run))
+
+    # 3. Fix Claude skills symlink
     symlink_items = [
         i for i in report.items if i.content_type == "symlink" and i.status != SyncStatus.SYNCED
     ]
     if symlink_items:
         actions.append(fix_claude_skills_symlink(dry_run=dry_run))
 
-    # 3. Fix commands (only if canonical commands exist)
+    # 4. Fix commands (only if canonical commands exist)
     if report.canonical.commands:
         cmd_issues = [
             i

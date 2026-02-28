@@ -22,6 +22,7 @@ import click
 from rich.console import Console
 
 from agent_sync import __version__
+from agent_sync.models import SyncStatus
 
 
 console = Console()
@@ -350,8 +351,18 @@ def fix(
     if quiet:
         return
 
-    if not actions:
+    # Check report status, not just actions
+    if report.overall_status == SyncStatus.SYNCED:
         console.print("[green]Everything is in sync![/green]")
+        return
+
+    if not actions:
+        # There are issues but no automated fixes available
+        console.print("[yellow]Issues detected but no automated fixes available.[/yellow]")
+        console.print(f"  Missing: {report.missing_count}")
+        console.print(f"  Drift: {report.drift_count}")
+        console.print(f"  Extra: {report.extra_count}")
+        console.print("\nRun 'agent-sync check' for details.")
         return
 
     for action in actions:
