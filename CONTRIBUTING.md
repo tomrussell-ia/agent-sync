@@ -41,7 +41,7 @@ Using pip:
 
 ```bash
 # Install dependencies
-pip install -e ".[dev,probe]"
+pip install -e ".[dev]"
 
 # Install pre-commit hooks
 pre-commit install

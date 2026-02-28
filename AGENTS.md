@@ -24,7 +24,7 @@ src/agent_sync/
 ├── log_parser.py       # Log parsing utilities
 ├── models.py           # Data models and schemas
 ├── plugin_validator.py # Agent plugin validation logic
-├── prober.py           # Agent discovery and probing
+├── prober.py           # Configuration validation and guidance
 ├── scanner.py          # Configuration scanning
 ├── serializers.py      # Data serialization utilities
 └── sync_engine.py      # Core synchronization engine
@@ -55,7 +55,7 @@ src/agent_sync/
 ### Dependencies
 
 - **Required**: click, rich, textual, tomli (Python <3.12), tomli-w
-- **Optional (probe)**: github-copilot-sdk, mcp
+- **Development**: pytest, ruff, mypy, pre-commit
 
 ## Common Tasks
 

@@ -45,7 +45,7 @@ Agent Sync is a Python-based CLI tool that provides a unified interface for mana
 
 **Key Features**:
 - Click-based command structure
-- Commands: `dashboard`, `check`, `fix`, `probe`
+- Commands: `dashboard`, `check`, `fix`, `validate`
 - Global flags: `--json`, `--quiet`, `--tool`, `--type`
 - Error handling and exit codes
 
@@ -169,14 +169,15 @@ formatters/
 
 ### 10. Prober (`prober.py`)
 
-**Responsibility**: Runtime validation of MCP servers and tools
+**Responsibility**: Configuration validation and agent guidance
 
 **Features**:
-- Test MCP server connectivity
-- Verify tool capabilities
-- Check API availability
+- Validate CLI tool availability on PATH
+- Check MCP server configuration validity
+- Provide agent-friendly guidance messages for connectivity testing
+- File-based validation only (no runtime connectivity checks)
 
-**Design Decision**: Optional feature requiring `probe` dependencies. Isolated from core functionality to keep base installation lightweight.
+**Design Philosophy**: This tool is FOR agents to use, not a tool WITH agents embedded. It provides structured validation output that external agents can interpret and act upon.
 
 ## Data Flow
 
@@ -247,7 +248,7 @@ Models are immutable by default. State changes flow unidirectionally through the
 Destructive operations (fix mode) require explicit flags. Default behavior is always safe.
 
 ### 4. Tool Independence
-Core functionality doesn't depend on optional features (probe, specific tools). Base tool works with minimal dependencies.
+Core functionality doesn't depend on external SDKs. Base tool works with minimal dependencies and provides structured output for agents to interpret.
 
 ### 5. Testability
 Pure functions and dependency injection make testing straightforward. Scanner can work with mock filesystems; formatters with mock state.
@@ -270,7 +271,7 @@ Pure functions and dependency injection make testing straightforward. Scanner ca
 
 - **Validation Errors**: Caught early, user-friendly messages
 - **File I/O Errors**: Graceful degradation, continue on error
-- **Network Errors**: Only affect probe feature
+- **Network Errors**: Agent using the tool should handle connectivity tests based on guidance output
 - **Configuration Errors**: Report and skip invalid configs
 
 ## Testing Strategy

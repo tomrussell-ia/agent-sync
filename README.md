@@ -27,7 +27,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 # Install agent-sync from source
 git clone https://github.com/tomrussell-ia/agent-sync.git
 cd agent-sync
-uv sync --all-extras  # Installs all dependencies including dev and probe
+uv sync --all-extras  # Installs all dependencies including dev tools
 ```
 
 Using pip:
@@ -54,7 +54,6 @@ agent-sync --help
 - Python 3.11+ (3.14 recommended)
 - [uv](https://docs.astral.sh/uv/) package manager (recommended) or pip
 - Core dependencies: click, rich, textual, tomli-w
-- Optional: github-copilot-sdk, mcp (for probe features)
 - Development: pytest, ruff, mypy, pre-commit
 
 ## Project Structure
@@ -69,7 +68,7 @@ src/agent_sync/
 ├── log_parser.py       # Log parsing utilities
 ├── models.py           # Data models
 ├── plugin_validator.py # Plugin validation
-├── prober.py           # Agent probing
+├── prober.py           # Configuration validation
 ├── scanner.py          # Configuration scanner
 ├── serializers.py      # Data serialization
 └── sync_engine.py      # Sync orchestration
