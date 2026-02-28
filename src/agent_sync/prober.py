@@ -1,18 +1,17 @@
-"""Runtime probes for validating MCP servers and Copilot SDK connectivity.
+"""Configuration validation and guidance for external agents.
 
-Uses the ``github-copilot-sdk`` to check Copilot CLI health (ping, models,
-tools) and the ``mcp`` Python SDK to directly connect to MCP servers via
-HTTP or stdio transports.  Both packages are optional — the module degrades
-gracefully when they are missing.
+This module provides file-based validation of agent configurations and outputs
+agent-friendly guidance for connectivity checks. It does NOT attempt runtime
+connectivity - external agents should use this output to perform their own checks.
+
+Philosophy: This is a tool FOR agents, not a tool WITH agents embedded.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 import shutil
-import subprocess
-import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent_sync.models import (
@@ -28,286 +27,168 @@ from agent_sync.models import (
 if TYPE_CHECKING:
     from agent_sync.models import CanonicalState
 
-# ---------------------------------------------------------------------------
-# SDK availability flags
-# ---------------------------------------------------------------------------
-
-_HAS_COPILOT_SDK = False
-_HAS_MCP_SDK = False
-
-try:  # noqa: SIM105
-    from copilot import CopilotClient  # type: ignore[import-untyped]
-
-    _HAS_COPILOT_SDK = True
-except ImportError:
-    CopilotClient = None  # type: ignore[assignment, misc]
-
-try:
-    from mcp import ClientSession, StdioServerParameters  # type: ignore[import-untyped]
-    from mcp.client.stdio import stdio_client  # type: ignore[import-untyped]
-    from mcp.client.streamable_http import streamablehttp_client  # type: ignore[import-untyped]
-
-    _HAS_MCP_SDK = True
-except ImportError:
-    pass
-
-
-def has_copilot_sdk() -> bool:
-    """Return True if ``github-copilot-sdk`` is installed."""
-    return _HAS_COPILOT_SDK
-
-
-def has_mcp_sdk() -> bool:
-    """Return True if ``mcp`` Python SDK is installed."""
-    return _HAS_MCP_SDK
-
 
 # ---------------------------------------------------------------------------
-# Copilot SDK probe
+# CLI version validation (file-based, no execution)
 # ---------------------------------------------------------------------------
 
 
-async def probe_copilot_sdk(timeout: float = 30.0) -> ProbeResult:
-    """Ping the Copilot CLI via the SDK and enumerate models/tools.
-
-    Spawns ``copilot --headless --stdio`` under the hood, verifies JSON-RPC
-    connectivity, then queries ``models.list`` and ``tools.list``.
+def validate_cli_availability(tool: ToolName) -> ProbeResult:
+    """Check if a CLI tool is available on PATH and provide guidance.
+    
+    This does NOT execute the tool - it only checks if it exists.
+    External agents can use the guidance to perform actual connectivity checks.
     """
-    result = ProbeResult(
-        target="copilot-sdk",
-        target_type=ProbeTargetType.COPILOT_SDK,
-        tool=ToolName.COPILOT,
-    )
-
-    if not _HAS_COPILOT_SDK:
-        result.status = ProbeStatus.UNAVAILABLE
-        result.error_message = (
-            "github-copilot-sdk not installed — run: pip install agent-sync[probe]"
-        )
-        return result
-
-    start = time.perf_counter()
-    client = CopilotClient()
-
-    try:
-        await asyncio.wait_for(client.start(), timeout=timeout)
-
-        # Ping
-        ping_resp = await asyncio.wait_for(client.ping(), timeout=10.0)
-        result.detail = f"protocol={getattr(ping_resp, 'protocol_version', '?')}"
-
-        # Models
-        try:
-            models = await asyncio.wait_for(client.list_models(), timeout=10.0)
-            result.models_discovered = [
-                getattr(m, "id", str(m)) for m in (models or [])
-            ]
-        except Exception:  # noqa: BLE001
-            pass  # non-fatal — some versions may not expose models
-
-        # Tools
-        try:
-            tools = await asyncio.wait_for(client.list_tools(), timeout=10.0)
-            result.tools_discovered = [
-                getattr(t, "name", str(t)) for t in (tools or [])
-            ]
-        except Exception:  # noqa: BLE001
-            pass  # non-fatal
-
-        result.status = ProbeStatus.OK
-
-    except TimeoutError:
-        result.status = ProbeStatus.TIMEOUT
-        result.error_message = f"Copilot SDK timed out after {timeout}s"
-    except Exception as exc:  # noqa: BLE001
-        result.status = ProbeStatus.ERROR
-        result.error_message = str(exc)
-    finally:
-        try:
-            await client.stop()
-        except Exception:  # noqa: BLE001
-            pass
-        result.latency_ms = (time.perf_counter() - start) * 1000
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# MCP HTTP probe
-# ---------------------------------------------------------------------------
-
-
-async def probe_mcp_http(
-    server: McpServer,
-    timeout: float = 15.0,
-) -> ProbeResult:
-    """Connect to an HTTP/SSE MCP server, initialize, and list tools."""
-    result = ProbeResult(
-        target=server.name,
-        target_type=ProbeTargetType.MCP_HTTP,
-    )
-
-    if not _HAS_MCP_SDK:
-        result.status = ProbeStatus.UNAVAILABLE
-        result.error_message = "mcp SDK not installed — run: pip install agent-sync[probe]"
-        return result
-
-    if not server.url:
-        result.status = ProbeStatus.ERROR
-        result.error_message = "No URL configured"
-        return result
-
-    start = time.perf_counter()
-    try:
-        headers = dict(server.headers) if server.headers else {}
-        async with streamablehttp_client(server.url, headers=headers) as (
-            read_stream,
-            write_stream,
-            _,
-        ):
-            async with ClientSession(read_stream, write_stream) as session:
-                await asyncio.wait_for(session.initialize(), timeout=timeout)
-                tools_resp = await asyncio.wait_for(
-                    session.list_tools(), timeout=timeout
-                )
-                result.tools_discovered = [t.name for t in (tools_resp.tools or [])]
-                result.status = ProbeStatus.OK
-                result.detail = f"{len(result.tools_discovered)} tools"
-
-    except TimeoutError:
-        result.status = ProbeStatus.TIMEOUT
-        result.error_message = f"Timed out after {timeout}s connecting to {server.url}"
-    except Exception as exc:  # noqa: BLE001
-        result.status = ProbeStatus.ERROR
-        result.error_message = f"{type(exc).__name__}: {exc}"
-    finally:
-        result.latency_ms = (time.perf_counter() - start) * 1000
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# MCP stdio / local probe
-# ---------------------------------------------------------------------------
-
-
-async def probe_mcp_stdio(
-    server: McpServer,
-    timeout: float = 20.0,
-) -> ProbeResult:
-    """Spawn a stdio/local MCP server process, initialize, and list tools."""
-    target_type = (
-        ProbeTargetType.MCP_LOCAL
-        if server.server_type == McpServerType.LOCAL
-        else ProbeTargetType.MCP_STDIO
-    )
-    result = ProbeResult(
-        target=server.name,
-        target_type=target_type,
-    )
-
-    if not _HAS_MCP_SDK:
-        result.status = ProbeStatus.UNAVAILABLE
-        result.error_message = "mcp SDK not installed — run: pip install agent-sync[probe]"
-        return result
-
-    command = server.command
-    if not command:
-        result.status = ProbeStatus.ERROR
-        result.error_message = "No command configured"
-        return result
-
-    # Verify the command binary exists
-    if not shutil.which(command):
-        result.status = ProbeStatus.UNAVAILABLE
-        result.error_message = f"Command not found: {command}"
-        return result
-
-    start = time.perf_counter()
-    try:
-        params = StdioServerParameters(
-            command=command,
-            args=list(server.args) if server.args else [],
-            env=dict(server.env) if server.env else None,
-        )
-        async with stdio_client(params) as (read_stream, write_stream):
-            async with ClientSession(read_stream, write_stream) as session:
-                await asyncio.wait_for(session.initialize(), timeout=timeout)
-                tools_resp = await asyncio.wait_for(
-                    session.list_tools(), timeout=timeout
-                )
-                result.tools_discovered = [t.name for t in (tools_resp.tools or [])]
-                result.status = ProbeStatus.OK
-                result.detail = f"{len(result.tools_discovered)} tools"
-
-    except TimeoutError:
-        result.status = ProbeStatus.TIMEOUT
-        result.error_message = f"Timed out after {timeout}s spawning {command}"
-    except Exception as exc:  # noqa: BLE001
-        result.status = ProbeStatus.ERROR
-        result.error_message = f"{type(exc).__name__}: {exc}"
-    finally:
-        result.latency_ms = (time.perf_counter() - start) * 1000
-
-    return result
-
-
-# ---------------------------------------------------------------------------
-# CLI version probes (lightweight — just subprocess)
-# ---------------------------------------------------------------------------
-
-
-def probe_cli_version(tool: ToolName) -> ProbeResult:
-    """Check that a CLI tool is installed and returns a version string."""
-    commands: dict[ToolName, list[str]] = {
-        ToolName.COPILOT: ["copilot", "--version"],
-        ToolName.CLAUDE: ["claude", "--version"],
-        ToolName.CODEX: ["codex", "--version"],
+    commands = {
+        ToolName.COPILOT: "copilot",
+        ToolName.CLAUDE: "claude",
+        ToolName.CODEX: "codex",
     }
-
+    
     cmd = commands.get(tool)
     result = ProbeResult(
         target=f"{tool.value}-cli",
         target_type=ProbeTargetType.CLI_VERSION,
         tool=tool,
     )
-
+    
     if cmd is None:
         result.status = ProbeStatus.SKIPPED
         result.detail = "No CLI command defined"
         return result
-
-    if not shutil.which(cmd[0]):
-        result.status = ProbeStatus.UNAVAILABLE
-        result.error_message = f"CLI not found: {cmd[0]}"
-        return result
-
-    start = time.perf_counter()
-    try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=10,
-            shell=(os.name == "nt"),  # Windows needs shell for .cmd/.ps1 shims
+    
+    if shutil.which(cmd):
+        result.status = ProbeStatus.OK
+        result.detail = f"CLI found on PATH: {shutil.which(cmd)}"
+        result.error_message = (
+            f"AGENT GUIDANCE: Run `{cmd} --version` to verify installation"
         )
-        result.latency_ms = (time.perf_counter() - start) * 1000
-        output = (proc.stdout or proc.stderr or "").strip()
-        if proc.returncode == 0:
-            result.status = ProbeStatus.OK
-            result.detail = output[:120]
-        else:
-            result.status = ProbeStatus.ERROR
-            result.error_message = output[:200]
-    except subprocess.TimeoutExpired:
-        result.latency_ms = (time.perf_counter() - start) * 1000
-        result.status = ProbeStatus.TIMEOUT
-        result.error_message = f"{cmd[0]} --version timed out"
-    except Exception as exc:  # noqa: BLE001
-        result.latency_ms = (time.perf_counter() - start) * 1000
-        result.status = ProbeStatus.ERROR
-        result.error_message = str(exc)
+    else:
+        result.status = ProbeStatus.UNAVAILABLE
+        result.error_message = (
+            f"CLI not found on PATH: {cmd}\n"
+            f"AGENT GUIDANCE: Install the tool or check PATH environment variable"
+        )
+    
+    return result
 
+
+# ---------------------------------------------------------------------------
+# MCP server configuration validation
+# ---------------------------------------------------------------------------
+
+
+def validate_mcp_server(server: McpServer) -> ProbeResult:
+    """Validate MCP server configuration without connecting.
+    
+    Checks configuration validity and provides guidance for external agents
+    to perform actual connectivity tests.
+    """
+    target_type = {
+        McpServerType.HTTP: ProbeTargetType.MCP_HTTP,
+        McpServerType.STDIO: ProbeTargetType.MCP_STDIO,
+        McpServerType.LOCAL: ProbeTargetType.MCP_LOCAL,
+    }.get(server.server_type, ProbeTargetType.MCP_HTTP)
+    
+    result = ProbeResult(
+        target=server.name,
+        target_type=target_type,
+    )
+    
+    # Validate HTTP server configuration
+    if server.server_type == McpServerType.HTTP:
+        if not server.url:
+            result.status = ProbeStatus.ERROR
+            result.error_message = "No URL configured for HTTP server"
+            return result
+        
+        result.status = ProbeStatus.OK
+        result.detail = f"URL configured: {server.url}"
+        result.error_message = (
+            f"AGENT GUIDANCE: Test connectivity with:\n"
+            f"  curl -X POST {server.url}/initialize -H 'Content-Type: application/json'\n"
+            f"  or use an HTTP client to verify the endpoint is accessible"
+        )
+        return result
+    
+    # Validate stdio/local server configuration
+    command = server.command
+    if not command:
+        result.status = ProbeStatus.ERROR
+        result.error_message = "No command configured for stdio/local server"
+        return result
+    
+    # Check if command exists
+    if shutil.which(command):
+        result.status = ProbeStatus.OK
+        result.detail = f"Command found: {shutil.which(command)}"
+        args_str = " ".join(server.args) if server.args else ""
+        result.error_message = (
+            f"AGENT GUIDANCE: Test the server with:\n"
+            f"  {command} {args_str}\n"
+            f"  Verify it starts without errors and responds to MCP protocol"
+        )
+    else:
+        result.status = ProbeStatus.UNAVAILABLE
+        result.error_message = (
+            f"Command not found: {command}\n"
+            f"AGENT GUIDANCE: Install the required binary or check PATH.\n"
+            f"  Expected command: {command}\n"
+            f"  Args: {server.args if server.args else 'none'}"
+        )
+    
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Configuration file validation
+# ---------------------------------------------------------------------------
+
+
+def validate_config_file(path: Path, tool: ToolName) -> ProbeResult:
+    """Validate that a configuration file exists and is readable.
+    
+    Provides guidance on what the file should contain without parsing it.
+    """
+    result = ProbeResult(
+        target=str(path),
+        target_type=ProbeTargetType.CLI_VERSION,  # Reusing enum for config validation
+        tool=tool,
+    )
+    
+    if not path.exists():
+        result.status = ProbeStatus.UNAVAILABLE
+        result.error_message = (
+            f"Configuration file not found: {path}\n"
+            f"AGENT GUIDANCE: Create the file with proper {tool.value} configuration"
+        )
+        return result
+    
+    if not path.is_file():
+        result.status = ProbeStatus.ERROR
+        result.error_message = f"Path exists but is not a file: {path}"
+        return result
+    
+    try:
+        # Check if file is readable
+        with path.open("r") as f:
+            content_preview = f.read(200)
+        
+        result.status = ProbeStatus.OK
+        result.detail = f"Configuration file exists ({path.stat().st_size} bytes)"
+        result.error_message = (
+            f"AGENT GUIDANCE: Validate configuration syntax:\n"
+            f"  - Check JSON/TOML/YAML syntax is valid\n"
+            f"  - Verify all required fields are present\n"
+            f"  - Test with: {tool.value} --config {path} --validate"
+        )
+    except PermissionError:
+        result.status = ProbeStatus.ERROR
+        result.error_message = f"Permission denied reading: {path}"
+    except Exception as exc:
+        result.status = ProbeStatus.ERROR
+        result.error_message = f"Error reading file: {exc}"
+    
     return result
 
 
@@ -316,109 +197,54 @@ def probe_cli_version(tool: ToolName) -> ProbeResult:
 # ---------------------------------------------------------------------------
 
 
-async def probe_mcp_server(server: McpServer, timeout: float = 15.0) -> ProbeResult:
-    """Route an MCP server to the correct probe function based on type."""
-    if server.server_type == McpServerType.HTTP:
-        return await probe_mcp_http(server, timeout=timeout)
-    return await probe_mcp_stdio(server, timeout=timeout)
-
-
-async def probe_all(
-    canonical: CanonicalState,
-    *,
-    skip_copilot_sdk: bool = False,
-    skip_stdio: bool = False,
-    timeout: float = 15.0,
-) -> ProbeReport:
-    """Run all probes and return a consolidated report.
-
+def validate_all(canonical: CanonicalState) -> ProbeReport:
+    """Validate all configurations and provide agent guidance.
+    
+    This performs NO runtime connectivity checks. It only validates:
+    - CLI tools are on PATH
+    - Configuration files exist and are readable
+    - MCP server configurations are valid
+    
+    External agents should use the guidance messages to perform actual
+    connectivity tests and verification.
+    
     Parameters
     ----------
     canonical:
-        The canonical state from scanning ``~/.agents/``.
-    skip_copilot_sdk:
-        If True, skip the Copilot SDK ping/model/tools probe.
-    skip_stdio:
-        If True, skip probes for stdio/local MCP servers (they spawn processes).
-    timeout:
-        Per-probe timeout in seconds.
+        The canonical state from scanning agent configurations.
+    
+    Returns
+    -------
+    ProbeReport
+        Report with validation results and agent guidance for each component.
     """
     report = ProbeReport()
-
-    # 1. CLI version checks (synchronous, fast)
+    
+    # 1. Validate CLI tools are available
     for tool in (ToolName.COPILOT, ToolName.CLAUDE, ToolName.CODEX):
-        report.results.append(probe_cli_version(tool))
-
-    # 2. Copilot SDK probe
-    if skip_copilot_sdk:
-        report.results.append(
-            ProbeResult(
-                target="copilot-sdk",
-                target_type=ProbeTargetType.COPILOT_SDK,
-                tool=ToolName.COPILOT,
-                status=ProbeStatus.SKIPPED,
-                detail="Skipped via --skip-copilot-sdk",
-            )
-        )
-    else:
-        report.results.append(await probe_copilot_sdk(timeout=timeout * 2))
-
-    # 3. MCP server probes (parallel)
-    mcp_tasks: list[asyncio.Task[ProbeResult]] = []
+        report.results.append(validate_cli_availability(tool))
+    
+    # 2. Validate MCP server configurations
     for server in canonical.mcp_servers:
-        if skip_stdio and server.server_type in (
-            McpServerType.STDIO,
-            McpServerType.LOCAL,
-        ):
-            report.results.append(
-                ProbeResult(
-                    target=server.name,
-                    target_type=(
-                        ProbeTargetType.MCP_LOCAL
-                        if server.server_type == McpServerType.LOCAL
-                        else ProbeTargetType.MCP_STDIO
-                    ),
-                    status=ProbeStatus.SKIPPED,
-                    detail="Skipped via --skip-stdio",
-                )
-            )
-            continue
-        mcp_tasks.append(
-            asyncio.create_task(probe_mcp_server(server, timeout=timeout))
-        )
-
-    if mcp_tasks:
-        mcp_results = await asyncio.gather(*mcp_tasks, return_exceptions=True)
-        for r in mcp_results:
-            if isinstance(r, ProbeResult):
-                report.results.append(r)
-            else:
-                # Unexpected exception from gather
-                report.results.append(
-                    ProbeResult(
-                        target="unknown",
-                        target_type=ProbeTargetType.MCP_HTTP,
-                        status=ProbeStatus.ERROR,
-                        error_message=str(r),
-                    )
-                )
-
+        report.results.append(validate_mcp_server(server))
+    
+    # 3. Validate key configuration files
+    config_paths = {
+        ToolName.COPILOT: Path.home() / ".copilot" / "config.json",
+        ToolName.CLAUDE: Path.home() / ".claude" / "config.json",
+    }
+    
+    for tool, path in config_paths.items():
+        if path.parent.exists():  # Only check if base directory exists
+            report.results.append(validate_config_file(path, tool))
+    
     return report
 
 
-def run_probe(
-    canonical: CanonicalState,
-    *,
-    skip_copilot_sdk: bool = False,
-    skip_stdio: bool = False,
-    timeout: float = 15.0,
-) -> ProbeReport:
-    """Synchronous wrapper for ``probe_all`` — used by the CLI."""
-    return asyncio.run(
-        probe_all(
-            canonical,
-            skip_copilot_sdk=skip_copilot_sdk,
-            skip_stdio=skip_stdio,
-            timeout=timeout,
-        )
-    )
+def run_validation(canonical: CanonicalState) -> ProbeReport:
+    """Synchronous wrapper for validation - used by the CLI.
+    
+    No async needed since we're not doing network calls or spawning processes.
+    """
+    return validate_all(canonical)
+

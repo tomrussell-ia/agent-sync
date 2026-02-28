@@ -33,10 +33,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-probe = [
-    "github-copilot-sdk>=0.1.20",
-    "mcp>=1.20",
-]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
