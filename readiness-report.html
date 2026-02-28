@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="dark" data-dark-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Readiness Report: agent-sync</title>
+  <style>
+    :root, [data-theme="dark"], body.vscode-dark {
+      --color-canvas-default: #0d1117;
+      --color-canvas-subtle: #161b22;
+      --color-canvas-inset: #010409;
+      --color-border-default: #30363d;
+      --color-border-muted: #21262d;
+      --color-fg-default: #e6edf3;
+      --color-fg-muted: #8b949e;
+      --color-fg-subtle: #6e7681;
+      --color-accent-fg: #58a6ff;
+      --color-accent-emphasis: #1f6feb;
+      --color-success-fg: #3fb950;
+      --color-success-emphasis: #238636;
+      --color-danger-fg: #f85149;
+      --color-danger-emphasis: #da3633;
+      --color-attention-fg: #d29922;
+      --color-done-fg: #a371f7;
+    }
+
+    [data-theme="light"], body.vscode-light, body.vscode-high-contrast-light {
+      --color-canvas-default: #ffffff;
+      --color-canvas-subtle: #f6f8fa;
+      --color-canvas-inset: #eff2f5;
+      --color-border-default: #d0d7de;
+      --color-border-muted: #d8dee4;
+      --color-fg-default: #1f2328;
+      --color-fg-muted: #656d76;
+      --color-fg-subtle: #6e7781;
+      --color-accent-fg: #0969da;
+      --color-accent-emphasis: #0550ae;
+      --color-success-fg: #1a7f37;
+      --color-success-emphasis: #116329;
+      --color-danger-fg: #cf222e;
+      --color-danger-emphasis: #a40e26;
+      --color-attention-fg: #9a6700;
+      --color-done-fg: #8250df;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--color-canvas-default);
+      color: var(--color-fg-default);
+      padding: 24px;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .container { max-width: 1280px; margin: 0 auto; }
+
+    /* Header */
+    .header {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 20px 24px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-logo { width: 32px; height: 32px; flex-shrink: 0; }
+    .header-text h1 { font-size: 20px; font-weight: 600; color: var(--color-fg-default); }
+    .header .subtitle { color: var(--color-fg-muted); font-size: 12px; }
+
+    /* Summary Cards (multi-repo) */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 16px;
+      border-radius: 6px;
+    }
+    .card-title { font-size: 12px; color: var(--color-fg-muted); font-weight: 500; margin-bottom: 4px; }
+    .card-value { font-size: 32px; font-weight: 600; color: var(--color-accent-fg); }
+    .card-subtitle { font-size: 12px; color: var(--color-fg-subtle); margin-top: 4px; }
+
+    /* Single-repo Hero */
+    .hero {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 24px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .hero-level {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 700; flex-shrink: 0;
+    }
+    .hero-level.level-high { background: rgba(63,185,80,0.12); border: 2px solid var(--color-success-fg); color: var(--color-success-fg); }
+    .hero-level.level-mid { background: rgba(210,153,34,0.12); border: 2px solid var(--color-attention-fg); color: var(--color-attention-fg); }
+    .hero-level.level-low { background: rgba(88,166,255,0.12); border: 2px solid var(--color-accent-fg); color: var(--color-accent-fg); }
+    .hero-info { flex: 1; }
+    .hero-name { font-size: 20px; font-weight: 600; color: var(--color-fg-default); margin-bottom: 2px; }
+    .hero-subtitle { color: var(--color-fg-muted); font-size: 14px; }
+    .hero-next { margin-top: 8px; font-size: 13px; color: var(--color-fg-subtle); }
+    .hero-next strong { color: var(--color-fg-muted); }
+
+    /* Fix First */
+    .fix-first {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 24px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .fix-first .section-title { color: var(--color-attention-fg); }
+    .fix-list { display: grid; gap: 8px; }
+    .fix-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-muted);
+    }
+    .fix-item-icon {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0; font-weight: 700;
+      background: rgba(248,81,73,0.12); color: var(--color-danger-fg);
+    }
+    .fix-item-text { flex: 1; min-width: 0; }
+    .fix-item-title { font-weight: 600; font-size: 13px; color: var(--color-fg-default); }
+    .fix-item-reason { font-size: 12px; color: var(--color-fg-muted); margin-top: 2px; }
+    .fix-item-badges { display: flex; gap: 6px; margin-top: 4px; }
+    .fix-badge {
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 2em;
+      border: 1px solid transparent;
+    }
+    .fix-badge.impact-high { color: var(--color-danger-fg); background: rgba(248,81,73,0.08); border-color: rgba(248,81,73,0.2); }
+    .fix-badge.impact-medium { color: var(--color-attention-fg); background: rgba(210,153,34,0.08); border-color: rgba(210,153,34,0.2); }
+    .fix-badge.impact-low { color: var(--color-fg-muted); background: rgba(139,148,158,0.08); border-color: rgba(139,148,158,0.15); }
+    .fix-badge.effort-low { color: var(--color-success-fg); background: rgba(63,185,80,0.08); border-color: rgba(63,185,80,0.2); }
+    .fix-badge.effort-medium { color: var(--color-attention-fg); background: rgba(210,153,34,0.08); border-color: rgba(210,153,34,0.2); }
+    .fix-badge.effort-high { color: var(--color-fg-muted); background: rgba(139,148,158,0.08); border-color: rgba(139,148,158,0.15); }
+
+    /* Sections */
+    .section {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 24px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--color-fg-default);
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--color-border-muted);
+    }
+
+    /* Pillar Grid */
+    .pillar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .pillar-card {
+      padding: 12px 16px;
+      border-radius: 6px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-muted);
+    }
+    .pillar-card.all-passing {
+      opacity: 0.7;
+    }
+    .pillar-card.has-failures {
+      border-color: var(--color-attention-fg);
+    }
+    .pillar-card.all-passing .pillar-name::before {
+      content: '\2713 ';
+      color: var(--color-success-fg);
+    }
+    .pillar-name { font-size: 13px; font-weight: 600; color: var(--color-fg-default); margin-bottom: 8px; }
+    .pillar-stats { display: flex; align-items: center; gap: 12px; }
+    .progress-bar { flex: 1; height: 8px; background: var(--color-border-muted); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+    .progress-fill.low { background: var(--color-danger-fg); }
+    .progress-fill.medium { background: var(--color-attention-fg); }
+    .progress-fill.high { background: var(--color-success-fg); }
+    .pillar-stats span { font-size: 12px; color: var(--color-fg-muted); white-space: nowrap; }
+
+    /* Repo List */
+    .repo-list { display: grid; gap: 12px; }
+    .repo-item {
+      padding: 16px;
+      border-radius: 6px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-muted);
+    }
+    .repo-item.error { border-color: var(--color-danger-emphasis); }
+    .repo-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .repo-name { font-size: 16px; font-weight: 600; color: var(--color-accent-fg); }
+    .error-message { color: var(--color-danger-fg); font-size: 13px; margin-top: 8px; }
+
+    /* Level Badges */
+    .level-badge {
+      padding: 2px 10px;
+      border-radius: 2em;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+    .level-0 { background: rgba(139,148,158,0.1); color: var(--color-fg-muted); border-color: var(--color-border-default); }
+    .level-1 { background: rgba(88,166,255,0.12); color: var(--color-accent-fg); border-color: rgba(88,166,255,0.3); }
+    .level-2 { background: rgba(121,192,255,0.12); color: #79c0ff; border-color: rgba(121,192,255,0.3); }
+    .level-3 { background: rgba(63,185,80,0.12); color: var(--color-success-fg); border-color: rgba(63,185,80,0.3); }
+    .level-4 { background: rgba(210,153,34,0.12); color: var(--color-attention-fg); border-color: rgba(210,153,34,0.3); }
+    .level-5 { background: rgba(163,113,247,0.12); color: var(--color-done-fg); border-color: rgba(163,113,247,0.3); }
+
+    /* Repo Pillars (expandable) */
+    .repo-pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .repo-pillar {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-muted);
+      border-radius: 6px;
+      font-size: 13px;
+      overflow: hidden;
+    }
+    .repo-pillar details { cursor: pointer; }
+    .repo-pillar summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      list-style: none;
+      user-select: none;
+    }
+    .repo-pillar summary::-webkit-details-marker { display: none; }
+    .repo-pillar summary::before {
+      content: '\25B8';
+      color: var(--color-fg-subtle);
+      margin-right: 6px;
+      font-size: 10px;
+    }
+    .repo-pillar details[open] summary::before { content: '\25BE'; }
+    .repo-pillar summary:hover { background: rgba(177,186,196,0.04); }
+    .repo-pillar-name { color: var(--color-fg-muted); }
+    .repo-pillar-value { font-weight: 600; color: var(--color-fg-default); font-size: 12px; }
+    .pillar-criteria-list { padding: 4px 12px 8px; border-top: 1px solid var(--color-border-muted); }
+    .criterion-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--color-fg-muted);
+    }
+    .criterion-row + .criterion-row { border-top: 1px solid rgba(33,38,45,0.5); }
+    .criterion-status {
+      font-size: 12px;
+      font-weight: 500;
+      padding: 1px 8px;
+      border-radius: 2em;
+      border: 1px solid transparent;
+    }
+    .criterion-status.pass { color: var(--color-success-fg); background: rgba(63,185,80,0.1); border-color: rgba(63,185,80,0.2); }
+    .criterion-status.fail { color: var(--color-danger-fg); background: rgba(248,81,73,0.1); border-color: rgba(248,81,73,0.2); }
+    .criterion-status.skip { color: var(--color-fg-muted); background: rgba(139,148,158,0.08); border-color: rgba(139,148,158,0.15); }
+
+    /* Level Distribution */
+    .level-distribution { display: flex; gap: 12px; margin: 8px 0 16px; align-items: flex-end; }
+    .level-bar {
+      flex: 1;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      min-height: 160px;
+    }
+    .level-bar-count { font-size: 14px; font-weight: 600; color: var(--color-accent-fg); margin-bottom: 4px; }
+    .level-bar-fill {
+      width: 100%;
+      background: linear-gradient(180deg, var(--color-accent-fg), var(--color-accent-emphasis));
+      border-radius: 6px 6px 0 0;
+      transition: height 0.3s ease;
+    }
+    .level-bar-fill.empty { background: var(--color-border-muted); height: 3px !important; border-radius: 3px; }
+    .level-bar-label { margin-top: 8px; font-size: 11px; color: var(--color-fg-muted); font-weight: 500; }
+
+    /* Maturity Model */
+    .maturity-descriptions { display: grid; gap: 8px; }
+    .maturity-item {
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-muted);
+    }
+    .maturity-item.has-repos { border-color: var(--color-accent-fg); }
+    .maturity-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .maturity-name { font-size: 14px; font-weight: 600; color: var(--color-fg-default); }
+    .maturity-count { margin-left: auto; font-size: 12px; color: var(--color-fg-muted); }
+    .maturity-desc { font-size: 12px; color: var(--color-fg-muted); line-height: 1.5; }
+
+    /* AI Hero */
+    .ai-hero {
+      background: var(--color-canvas-subtle);
+      border: 1px solid var(--color-border-default);
+      padding: 24px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ai-hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--color-accent-fg), var(--color-done-fg), var(--color-success-fg));
+    }
+    .ai-hero .section-title { color: var(--color-fg-default); }
+    .ai-hero-subtitle { color: var(--color-fg-muted); font-size: 13px; margin-bottom: 16px; }
+    .ai-score-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+    .ai-score-ring {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; flex-shrink: 0;
+    }
+    .ai-score-ring.score-high { background: rgba(63,185,80,0.1); border: 2px solid var(--color-success-fg); color: var(--color-success-fg); }
+    .ai-score-ring.score-medium { background: rgba(210,153,34,0.1); border: 2px solid var(--color-attention-fg); color: var(--color-attention-fg); }
+    .ai-score-ring.score-low { background: rgba(248,81,73,0.1); border: 2px solid var(--color-danger-fg); color: var(--color-danger-fg); }
+    .ai-score-detail { flex: 1; }
+    .ai-score-label { font-size: 16px; font-weight: 600; color: var(--color-fg-default); margin-bottom: 2px; }
+    .ai-score-desc { color: var(--color-fg-muted); font-size: 13px; }
+    .ai-criteria-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; }
+    .ai-criterion {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-muted);
+      transition: border-color 0.15s;
+    }
+    .ai-criterion:hover { border-color: var(--color-border-default); }
+    .ai-criterion-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; flex-shrink: 0; font-weight: 700;
+    }
+    .ai-criterion-icon.pass { background: rgba(63,185,80,0.12); color: var(--color-success-fg); }
+    .ai-criterion-icon.fail { background: rgba(248,81,73,0.12); color: var(--color-danger-fg); }
+    .ai-criterion-text { flex: 1; min-width: 0; }
+    .ai-criterion-title { font-weight: 600; font-size: 13px; color: var(--color-fg-default); }
+    .ai-criterion-reason { font-size: 12px; color: var(--color-fg-muted); margin-top: 1px; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      color: var(--color-fg-subtle);
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--color-border-muted);
+      font-size: 12px;
+    }
+    .footer a { color: var(--color-accent-fg); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    /* Compact Maturity Progress */
+    .maturity-progress {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+      align-items: stretch;
+      height: 8px;
+    }
+    .maturity-segment {
+      flex: 1;
+      border-radius: 4px;
+      background: var(--color-border-muted);
+      position: relative;
+    }
+    .maturity-segment.achieved { background: var(--color-accent-fg); }
+    .maturity-segment.current { background: var(--color-accent-fg); box-shadow: 0 0 0 2px var(--color-accent-emphasis); }
+
+    .maturity-labels {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .maturity-label {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      color: var(--color-fg-subtle);
+    }
+    .maturity-label.current { color: var(--color-accent-fg); font-weight: 600; }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      margin-left: auto;
+      background: var(--color-canvas-default);
+      border: 1px solid var(--color-border-default);
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      color: var(--color-fg-muted);
+      font-size: 12px;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: border-color 0.15s;
+    }
+    .theme-toggle:hover {
+      border-color: var(--color-accent-fg);
+      color: var(--color-fg-default);
+    }
+    .theme-toggle-icon { font-size: 14px; }
+
+    @media (max-width: 768px) {
+      body { padding: 16px; }
+      .summary-cards { grid-template-columns: 1fr; }
+      .pillar-grid { grid-template-columns: 1fr; }
+      .ai-criteria-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <svg class="header-logo" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.26-1.24-.55-1.49 1.81-.2 3.71-.89 3.71-4 0-.88-.31-1.61-.82-2.17.08-.2.36-1.02-.08-2.13 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.93-.08 2.13-.51.56-.82 1.28-.82 2.17 0 3.07 1.87 3.75 3.65 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path>
+      </svg>
+      <div class="header-text">
+        <h1>AI Readiness Report: agent-sync</h1>
+        <p class="subtitle">Generated 2/28/2026, 11:32:22 AM</p>
+      </div>
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span class="theme-toggle-icon" id="theme-icon">&#9789;</span>
+        <span id="theme-label">Light</span>
+      </button>
+    </div>
+
+    
+    <div class="hero">
+      <div class="hero-level level-low">0</div>
+      <div class="hero-info">
+        <div class="hero-name">agent-sync</div>
+        <div class="hero-subtitle">Level 0: Unknown — 12 of 18 checks passing</div>
+        <div class="hero-next">Next: <strong>Level 1 — Functional</strong> (2 more checks needed)</div>
+      </div>
+    </div>
+  
+
+    
+    
+    <div class="fix-first">
+      <h2 class="section-title">&#9888; Fix First</h2>
+      <div class="fix-list">
+        
+          <div class="fix-item">
+            <div class="fix-item-icon">&#10007;</div>
+            <div class="fix-item-text">
+              <div class="fix-item-title">Linting configured</div>
+              <div class="fix-item-reason">Missing ESLint/Biome/Prettier configuration.</div>
+              <div class="fix-item-badges">
+                <span class="fix-badge impact-high">high impact</span>
+                <span class="fix-badge effort-low">low effort</span>
+                
+              </div>
+            </div>
+          </div>
+        
+          <div class="fix-item">
+            <div class="fix-item-icon">&#10007;</div>
+            <div class="fix-item-text">
+              <div class="fix-item-title">Lockfile present</div>
+              <div class="fix-item-reason">Missing package manager lockfile.</div>
+              <div class="fix-item-badges">
+                <span class="fix-badge impact-high">high impact</span>
+                <span class="fix-badge effort-low">low effort</span>
+                
+              </div>
+            </div>
+          </div>
+        
+          <div class="fix-item">
+            <div class="fix-item-icon">&#10007;</div>
+            <div class="fix-item-text">
+              <div class="fix-item-title">Formatter configured</div>
+              <div class="fix-item-reason">Missing Prettier/Biome formatting config.</div>
+              <div class="fix-item-badges">
+                <span class="fix-badge impact-medium">medium impact</span>
+                <span class="fix-badge effort-low">low effort</span>
+                
+              </div>
+            </div>
+          </div>
+        
+          <div class="fix-item">
+            <div class="fix-item-icon">&#10007;</div>
+            <div class="fix-item-text">
+              <div class="fix-item-title">Observability tooling present</div>
+              <div class="fix-item-reason">No observability dependencies detected (OpenTelemetry/logging).</div>
+              <div class="fix-item-badges">
+                <span class="fix-badge impact-medium">medium impact</span>
+                <span class="fix-badge effort-medium">medium effort</span>
+                
+              </div>
+            </div>
+          </div>
+        
+          <div class="fix-item">
+            <div class="fix-item-icon">&#10007;</div>
+            <div class="fix-item-text">
+              <div class="fix-item-title">Custom AI agents configured</div>
+              <div class="fix-item-reason">No custom AI agents configured (e.g. .github/agents/, .copilot/agents/).</div>
+              <div class="fix-item-badges">
+                <span class="fix-badge impact-medium">medium impact</span>
+                <span class="fix-badge effort-medium">medium effort</span>
+                
+              </div>
+            </div>
+          </div>
+        
+      </div>
+    </div>
+  
+
+    
+    <div class="ai-hero">
+      <h2 class="section-title">AI Tooling Readiness</h2>
+      <p class="ai-hero-subtitle">How well prepared this repository is for AI-assisted development</p>
+
+      <div class="ai-score-header">
+        <div class="ai-score-ring score-high">60%</div>
+        <div class="ai-score-detail">
+          <div class="ai-score-label">Good</div>
+          <div class="ai-score-desc">3 of 5 AI tooling checks passing</div>
+        </div>
+      </div>
+
+      <div class="ai-criteria-grid">
+        
+          <div class="ai-criterion">
+            <div class="ai-criterion-icon pass">
+              &#10003;
+            </div>
+            <div class="ai-criterion-text">
+              <div class="ai-criterion-title">&#128221; Custom AI instructions or agent guidance</div>
+              <div class="ai-criterion-reason">Detected</div>
+            </div>
+          </div>
+        
+          <div class="ai-criterion">
+            <div class="ai-criterion-icon pass">
+              &#10003;
+            </div>
+            <div class="ai-criterion-text">
+              <div class="ai-criterion-title">&#128295; AI instruction files are consistent</div>
+              <div class="ai-criterion-reason">Detected</div>
+            </div>
+          </div>
+        
+          <div class="ai-criterion">
+            <div class="ai-criterion-icon pass">
+              &#10003;
+            </div>
+            <div class="ai-criterion-text">
+              <div class="ai-criterion-title">&#128268; MCP configuration present</div>
+              <div class="ai-criterion-reason">Detected</div>
+            </div>
+          </div>
+        
+          <div class="ai-criterion">
+            <div class="ai-criterion-icon fail">
+              &#10007;
+            </div>
+            <div class="ai-criterion-text">
+              <div class="ai-criterion-title">&#129302; Custom AI agents configured</div>
+              <div class="ai-criterion-reason">No custom AI agents configured (e.g. .github/agents/, .copilot/agents/).</div>
+            </div>
+          </div>
+        
+          <div class="ai-criterion">
+            <div class="ai-criterion-icon fail">
+              &#10007;
+            </div>
+            <div class="ai-criterion-text">
+              <div class="ai-criterion-title">&#9889; Copilot/Claude skills present</div>
+              <div class="ai-criterion-reason">No Copilot or Claude skills found (e.g. .copilot/skills/, .github/skills/).</div>
+            </div>
+          </div>
+        
+      </div>
+      
+    </div>
+  
+
+    <div class="section">
+      <h2 class="section-title">Pillar Performance</h2>
+      
+        <h3 style="font-size: 13px; font-weight: 600; color: var(--color-fg-muted); margin-bottom: 8px; margin-top: 12px;">Repo Health</h3>
+        <div class="pillar-grid">
+          
+            <div class="pillar-card has-failures">
+              <div class="pillar-name">Style &amp; Validation</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill medium" style="width: 50%"></div>
+                </div>
+                <span>1 of 2</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card all-passing">
+              <div class="pillar-name">Build System</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill high" style="width: 100%"></div>
+                </div>
+                <span>All passing</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card all-passing">
+              <div class="pillar-name">Testing</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill low" style="width: 0%"></div>
+                </div>
+                <span>All passing</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card all-passing">
+              <div class="pillar-name">Documentation</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill high" style="width: 100%"></div>
+                </div>
+                <span>All passing</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card has-failures">
+              <div class="pillar-name">Dev Environment</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill medium" style="width: 50%"></div>
+                </div>
+                <span>1 of 2</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card has-failures">
+              <div class="pillar-name">Code Quality</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill low" style="width: 2%"></div>
+                </div>
+                <span>0 of 1</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card has-failures">
+              <div class="pillar-name">Observability</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill low" style="width: 2%"></div>
+                </div>
+                <span>0 of 1</span>
+              </div>
+            </div>
+          
+            <div class="pillar-card all-passing">
+              <div class="pillar-name">Security &amp; Governance</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill high" style="width: 100%"></div>
+                </div>
+                <span>All passing</span>
+              </div>
+            </div>
+          
+        </div>
+      
+        <h3 style="font-size: 13px; font-weight: 600; color: var(--color-fg-muted); margin-bottom: 8px; margin-top: 12px;">AI Setup</h3>
+        <div class="pillar-grid">
+          
+            <div class="pillar-card has-failures">
+              <div class="pillar-name">AI Tooling</div>
+              <div class="pillar-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill medium" style="width: 60%"></div>
+                </div>
+                <span>3 of 5</span>
+              </div>
+            </div>
+          
+        </div>
+      
+    </div>
+
+    
+    <div class="section">
+      <h2 class="section-title">Maturity Model</h2>
+      <div class="maturity-progress">
+        <div class="maturity-segment"></div><div class="maturity-segment"></div><div class="maturity-segment"></div><div class="maturity-segment"></div><div class="maturity-segment"></div>
+      </div>
+      <div class="maturity-labels">
+        <div class="maturity-label">1. Functional</div><div class="maturity-label">2. Documented</div><div class="maturity-label">3. Standardized</div><div class="maturity-label">4. Optimized</div><div class="maturity-label">5. Autonomous</div>
+      </div>
+      
+        <div class="maturity-item">
+          <div class="maturity-header">
+            <span class="level-badge level-1">1</span>
+            <span class="maturity-name">Functional</span>
+            <span class="maturity-count">Next</span>
+          </div>
+          <div class="maturity-desc">Repo builds, tests run, and basic tooling (linter, lockfile) is in place. AI agents can clone and get started.</div>
+        </div>
+      
+    </div>
+  
+    
+
+    <div class="section">
+      <h2 class="section-title">Pillar Details</h2>
+      <div class="repo-list">
+        
+            <div class="repo-item">
+              
+              
+              <div class="repo-pillars">
+                
+                  <div class="repo-pillar">
+                    <details open>
+                      <summary>
+                        <span class="repo-pillar-name">Style &amp; Validation</span>
+                        <span class="repo-pillar-value" style="">1/2 (50%)</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Linting configured</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Type checking configured</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details>
+                      <summary>
+                        <span class="repo-pillar-name">&#10003; Build System</span>
+                        <span class="repo-pillar-value" style="color: var(--color-success-fg);">1/1</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Build script present</span>
+                            <span class="criterion-status skip">Skip</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>CI workflow configured</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details>
+                      <summary>
+                        <span class="repo-pillar-name">&#10003; Testing</span>
+                        <span class="repo-pillar-value" style="color: var(--color-success-fg);">0/0</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Test script present</span>
+                            <span class="criterion-status skip">Skip</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details>
+                      <summary>
+                        <span class="repo-pillar-name">&#10003; Documentation</span>
+                        <span class="repo-pillar-value" style="color: var(--color-success-fg);">2/2</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>README present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>CONTRIBUTING guide present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details open>
+                      <summary>
+                        <span class="repo-pillar-name">Dev Environment</span>
+                        <span class="repo-pillar-value" style="">1/2 (50%)</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Lockfile present</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Environment example present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details open>
+                      <summary>
+                        <span class="repo-pillar-name">Code Quality</span>
+                        <span class="repo-pillar-value" style="">0/1 (0%)</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Formatter configured</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details open>
+                      <summary>
+                        <span class="repo-pillar-name">Observability</span>
+                        <span class="repo-pillar-value" style="">0/1 (0%)</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Observability tooling present</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details>
+                      <summary>
+                        <span class="repo-pillar-name">&#10003; Security &amp; Governance</span>
+                        <span class="repo-pillar-value" style="color: var(--color-success-fg);">4/4</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>CODEOWNERS present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>LICENSE present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Security policy present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Dependabot configured</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+                  <div class="repo-pillar">
+                    <details open>
+                      <summary>
+                        <span class="repo-pillar-name">AI Tooling</span>
+                        <span class="repo-pillar-value" style="">3/5 (60%)</span>
+                      </summary>
+                      <div class="pillar-criteria-list">
+                        
+                          <div class="criterion-row">
+                            <span>Custom AI instructions or agent guidance</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>AI instruction files are consistent</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>MCP configuration present</span>
+                            <span class="criterion-status pass">Pass</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Custom AI agents configured</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                          <div class="criterion-row">
+                            <span>Copilot/Claude skills present</span>
+                            <span class="criterion-status fail">Fail</span>
+                          </div>
+                        
+                        
+                      </div>
+                    </details>
+                  </div>
+                
+              </div>
+              
+            </div>
+          
+      </div>
+    </div>
+
+    
+
+    <div class="footer">
+      <p>Generated with <a href="https://github.com/microsoft/agentrc">AgentRC</a> &middot; AI Readiness Tool</p>
+    </div>
+  </div>
+  <script>
+    function getPreferredTheme() {
+      // In VS Code webviews, body classes are injected automatically
+      if (document.body.classList.contains('vscode-light') || document.body.classList.contains('vscode-high-contrast-light')) return 'light';
+      if (document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')) return 'dark';
+      const stored = localStorage.getItem('agentrc-report-theme');
+      if (stored) return stored;
+      return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const icon = document.getElementById('theme-icon');
+      const label = document.getElementById('theme-label');
+      if (icon) icon.innerHTML = theme === 'dark' ? '&#9789;' : '&#9788;';
+      if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('agentrc-report-theme', next);
+      applyTheme(next);
+    }
+    applyTheme(getPreferredTheme());
+  </script>
+</body>
+</html>

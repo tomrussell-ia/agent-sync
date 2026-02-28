@@ -1,0 +1,21 @@
+# Code Owners for Agent Sync
+
+# Default owners for everything in the repo
+* @tomrussell-ia
+
+# Core sync engine
+/src/agent_sync/sync_engine.py @tomrussell-ia
+/src/agent_sync/models.py @tomrussell-ia
+
+# Configuration and scanning
+/src/agent_sync/config.py @tomrussell-ia
+/src/agent_sync/scanner.py @tomrussell-ia
+
+# Dashboard and UI
+/src/agent_sync/dashboard.py @tomrussell-ia
+/src/agent_sync/console.py @tomrussell-ia
+
+# Documentation
+/README.md @tomrussell-ia
+/CONTRIBUTING.md @tomrussell-ia
+/.github/ @tomrussell-ia
