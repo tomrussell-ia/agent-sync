@@ -13,10 +13,16 @@ Agent Sync is a Python CLI tool and dashboard for managing and synchronizing AI 
 ## Setup Commands
 
 ```bash
-# Install dependencies
-uv sync
+# Install globally (recommended)
+uv tool install --editable .
 
-# Run the dashboard
+# After global install, use these commands:
+agent-sync           # Launch dashboard
+async               # Short alias
+agent-sync check    # Check drift
+agent-sync fix      # Apply fixes
+
+# Or run from source during development
 uv run agent-sync
 
 # Run tests

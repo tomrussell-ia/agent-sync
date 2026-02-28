@@ -16,7 +16,9 @@ Agent Sync provides a unified interface to manage and synchronize agent configur
 
 ## Installation
 
-Using [uv](https://docs.astral.sh/uv/) (recommended):
+### Global Installation (Recommended)
+
+Install globally using [uv](https://docs.astral.sh/uv/) tool:
 
 ```bash
 # Install uv if you haven't already
@@ -24,7 +26,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh  # Unix
 # or
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"  # Windows
 
-# Install agent-sync from source
+# Install agent-sync globally
+git clone https://github.com/tomrussell-ia/agent-sync.git
+cd agent-sync
+uv tool install --editable .
+```
+
+This installs two global commands:
+- `agent-sync` - Full command name
+- `async` - Short alias for convenience
+
+### Local Development Installation
+
+Using [uv](https://docs.astral.sh/uv/) (recommended):
+
+```bash
+# Clone and install for development
 git clone https://github.com/tomrussell-ia/agent-sync.git
 cd agent-sync
 uv sync --all-extras  # Installs all dependencies including dev tools
@@ -36,17 +53,37 @@ Using pip:
 # From source
 git clone https://github.com/tomrussell-ia/agent-sync.git
 cd agent-sync
-pip install -e ".[dev,probe]"
+pip install -e ".[dev]"
 ```
 
 ## Usage
 
+After global installation:
+
 ```bash
-# Launch the dashboard
+# Launch the dashboard (either command works)
 agent-sync
+async
+
+# Check configuration drift
+agent-sync check
+
+# Apply fixes
+agent-sync fix --dry-run  # Preview changes
+agent-sync fix            # Apply changes
+
+# Validate runtime connectivity
+agent-sync probe
 
 # View help
 agent-sync --help
+```
+
+During local development:
+
+```bash
+# Run from source with uv
+uv run agent-sync
 ```
 
 ## Requirements

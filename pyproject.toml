@@ -48,6 +48,7 @@ Issues = "https://github.com/tomrussell-ia/agent-sync/issues"
 
 [project.scripts]
 agent-sync = "agent_sync.cli:main"
+async = "agent_sync.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_sync"]
