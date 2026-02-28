@@ -36,9 +36,23 @@ This installs two global commands:
 - `agent-sync` - Full command name
 - `async` - Short alias for convenience
 
-**Troubleshooting:** If commands aren't recognized after installation:
+**Troubleshooting:** If commands aren't recognized or throw `ModuleNotFoundError`:
 
-**Windows:**
+**Issue 1: Command not found**
+- Restart your terminal to pick up PATH changes
+- Or add to PATH manually (see below)
+
+**Issue 2: ModuleNotFoundError (conflicting pip installation)**
+If you see `ModuleNotFoundError: No module named 'agent_sync'`, uninstall any old pip installation:
+```powershell
+# Windows
+python -m pip uninstall agent-sync -y
+
+# Unix/macOS
+pip uninstall agent-sync -y
+```
+
+**Windows PATH:**
 ```powershell
 # Restart your terminal, or add to PATH manually if needed:
 $env:PATH += ";$env:USERPROFILE\.local\bin"
@@ -47,7 +61,7 @@ $env:PATH += ";$env:USERPROFILE\.local\bin"
 [Environment]::SetEnvironmentVariable("PATH", "$env:PATH;$env:USERPROFILE\.local\bin", "User")
 ```
 
-**Unix/macOS:**
+**Unix/macOS PATH:**
 ```bash
 # Restart your terminal, or add to shell config if needed:
 export PATH="$HOME/.local/bin:$PATH"
