@@ -73,13 +73,37 @@ src/agent_sync/
 ### Setup Development Environment
 
 ```bash
+# Install dependencies
 pip install -e ".[probe]"
+
+# Install pre-commit hooks (recommended)
+pip install pre-commit
+pre-commit install
 ```
+
+The pre-commit hooks will automatically run linting, formatting, and validation checks before each commit.
 
 ### Running Tests
 
 ```bash
 pytest
+```
+
+### Code Quality
+
+This project uses:
+- **Ruff** for linting and formatting
+- **Pre-commit hooks** for automated checks
+- **MyPy** for optional type checking
+
+Run checks manually:
+```bash
+# Lint and format
+ruff check src/ --fix
+ruff format src/
+
+# Run pre-commit on all files
+pre-commit run --all-files
 ```
 
 ## Contributing

@@ -1,0 +1,208 @@
+{
+  "name": "generate-template",
+  "description": "Generate configuration templates for agent files",
+  "version": "1.0.0",
+  "triggers": [
+    "generate template",
+    "create config template",
+    "new agent config",
+    "scaffold config",
+    "generate agent template"
+  ],
+  "inputs": {
+    "template_type": {
+      "description": "Type of template to generate",
+      "type": "string",
+      "required": true,
+      "options": [
+        "agent",
+        "skill",
+        "mcp-server",
+        "copilot-instructions",
+        "pre-commit-config"
+      ]
+    },
+    "name": {
+      "description": "Name for the generated config",
+      "type": "string",
+      "required": true
+    },
+    "customize": {
+      "description": "Whether to customize template interactively",
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "templates": {
+    "agent": {
+      "path": ".github/agents/{name}/agent.json",
+      "structure": {
+        "name": "{name}",
+        "description": "Description of {name} agent",
+        "version": "1.0.0",
+        "capabilities": [],
+        "context": {
+          "files": [],
+          "scope": "**/*.py"
+        },
+        "instructions": [],
+        "boundaries": {
+          "must_not": [],
+          "focus_on": []
+        }
+      },
+      "prompts": [
+        "What is the agent's primary purpose?",
+        "What capabilities should it have?",
+        "What files should be in its context?",
+        "Any specific boundaries or constraints?"
+      ]
+    },
+    "skill": {
+      "path": ".github/skills/{name}/skill.json",
+      "structure": {
+        "name": "{name}",
+        "description": "Description of {name} skill",
+        "version": "1.0.0",
+        "triggers": [],
+        "inputs": {},
+        "steps": [],
+        "examples": []
+      },
+      "prompts": [
+        "What trigger phrases should activate this skill?",
+        "What inputs does the skill need?",
+        "What are the execution steps?",
+        "Can you provide usage examples?"
+      ],
+      "includes_readme": true
+    },
+    "mcp-server": {
+      "path": ".vscode/mcp.json or mcp-config-addition",
+      "structure": {
+        "servers": {
+          "{name}": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-{name}"],
+            "env": {}
+          }
+        }
+      },
+      "prompts": [
+        "What is the MCP server package name?",
+        "Does it require environment variables?",
+        "Should it use command or url connection?"
+      ]
+    },
+    "copilot-instructions": {
+      "path": ".github/copilot-instructions.md",
+      "sections": [
+        "## Project Overview",
+        "## Technology Stack",
+        "## Code Organization",
+        "## Development Guidelines",
+        "## Code Style",
+        "## Architecture Patterns",
+        "## Testing",
+        "## Common Tasks",
+        "## Important Constraints",
+        "## Error Handling",
+        "## Documentation",
+        "## Security"
+      ]
+    },
+    "pre-commit-config": {
+      "path": ".pre-commit-config.yaml",
+      "structure": {
+        "repos": [
+          {
+            "repo": "https://github.com/pre-commit/pre-commit-hooks",
+            "rev": "v5.0.0",
+            "hooks": []
+          }
+        ]
+      }
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Validate inputs",
+      "details": "Check template type is valid and name is provided"
+    },
+    {
+      "step": 2,
+      "action": "Load template structure",
+      "details": "Get the base template for requested type"
+    },
+    {
+      "step": 3,
+      "action": "Customize template (if requested)",
+      "details": "Ask prompts and fill in template with responses"
+    },
+    {
+      "step": 4,
+      "action": "Generate file(s)",
+      "details": "Create config file(s) with template content"
+    },
+    {
+      "step": 5,
+      "action": "Validate generated config",
+      "details": "Run validation to ensure generated config is correct"
+    },
+    {
+      "step": 6,
+      "action": "Provide next steps",
+      "details": "Guide user on how to use the generated config"
+    }
+  ],
+  "output_format": {
+    "success": {
+      "status": "✓ Template generated",
+      "files_created": ["list of created files"],
+      "next_steps": ["Edit {file} to customize", "Run validation"]
+    }
+  },
+  "examples": [
+    {
+      "trigger": "Generate agent template for logging-analyzer",
+      "execution": "Create .github/agents/logging-analyzer/agent.json with base structure",
+      "output": "Template created, ready for customization"
+    },
+    {
+      "trigger": "Create skill template for format-code",
+      "execution": "Create .github/skills/format-code/ with skill.json and README.md",
+      "output": "Skill template with example structure"
+    },
+    {
+      "trigger": "Generate MCP server config for filesystem",
+      "execution": "Add filesystem server to mcp.json",
+      "output": "MCP server configuration added"
+    }
+  ],
+  "validation": {
+    "after_generation": true,
+    "auto_fix": false,
+    "report_issues": true
+  },
+  "next_steps_guidance": {
+    "agent": [
+      "1. Edit agent.json to add specific capabilities",
+      "2. Define instructions and boundaries",
+      "3. Add context files relevant to agent's purpose",
+      "4. Test agent with example scenarios"
+    ],
+    "skill": [
+      "1. Edit skill.json to add trigger phrases",
+      "2. Define execution steps in detail",
+      "3. Add usage examples to README.md",
+      "4. Test skill activation and execution"
+    ],
+    "mcp-server": [
+      "1. Configure environment variables if needed",
+      "2. Test MCP server connectivity",
+      "3. Add to .vscode/settings.json if needed",
+      "4. Document server usage"
+    ]
+  }
+}

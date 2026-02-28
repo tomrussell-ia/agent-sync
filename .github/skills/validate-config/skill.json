@@ -1,0 +1,156 @@
+{
+  "name": "validate-config",
+  "description": "Validate agent configuration files for correctness and completeness",
+  "version": "1.0.0",
+  "triggers": [
+    "validate config",
+    "check configuration",
+    "validate agent config",
+    "lint config files",
+    "verify config"
+  ],
+  "inputs": {
+    "config_path": {
+      "description": "Path to config file or directory to validate",
+      "type": "string",
+      "required": false,
+      "default": "."
+    },
+    "config_type": {
+      "description": "Type of config (copilot, claude, codex, vscode, mcp)",
+      "type": "string",
+      "required": false
+    }
+  },
+  "validation_rules": {
+    "mcp_config": {
+      "file": "mcp.json or .vscode/mcp.json",
+      "required_fields": ["servers"],
+      "checks": [
+        "servers object exists and is not empty",
+        "Each server has command or url",
+        "Environment variables properly formatted",
+        "No duplicate server names"
+      ]
+    },
+    "copilot_instructions": {
+      "file": ".github/copilot-instructions.md",
+      "checks": [
+        "File exists and is readable",
+        "Contains project overview section",
+        "Includes code style guidelines",
+        "No hardcoded secrets or tokens"
+      ]
+    },
+    "agent_json": {
+      "file": ".github/agents/*/agent.json",
+      "required_fields": ["name", "description", "capabilities"],
+      "checks": [
+        "Valid JSON syntax",
+        "Required fields present",
+        "Capabilities is array",
+        "Context files exist if specified"
+      ]
+    },
+    "skill_json": {
+      "file": ".github/skills/*/skill.json",
+      "required_fields": ["name", "description", "triggers"],
+      "checks": [
+        "Valid JSON syntax",
+        "At least one trigger phrase",
+        "Steps are sequential and numbered",
+        "Examples provided"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "step": 1,
+      "action": "Discover config files",
+      "details": "Scan workspace for config files based on standard locations"
+    },
+    {
+      "step": 2,
+      "action": "Parse and validate syntax",
+      "details": "Ensure JSON/TOML/YAML syntax is valid"
+    },
+    {
+      "step": 3,
+      "action": "Check schema compliance",
+      "details": "Verify required fields and types"
+    },
+    {
+      "step": 4,
+      "action": "Validate cross-references",
+      "details": "Check that referenced files and paths exist"
+    },
+    {
+      "step": 5,
+      "action": "Security scan",
+      "details": "Look for exposed secrets, tokens, or sensitive data"
+    },
+    {
+      "step": 6,
+      "action": "Report findings",
+      "details": "Provide structured report with errors, warnings, and suggestions"
+    }
+  ],
+  "output_format": {
+    "valid": {
+      "status": "✓ All configs valid",
+      "summary": "X config files validated successfully",
+      "details": "List of validated files"
+    },
+    "invalid": {
+      "status": "✗ Validation errors found",
+      "errors": [
+        {
+          "file": "path/to/file",
+          "issue": "description",
+          "severity": "error|warning",
+          "suggestion": "how to fix"
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "trigger": "Validate all configs",
+      "action": "Scan workspace and validate all agent configs",
+      "report": "Summary of all validation results"
+    },
+    {
+      "trigger": "Validate MCP config",
+      "action": "Check .vscode/mcp.json specifically",
+      "report": "MCP-specific validation results"
+    },
+    {
+      "trigger": "Check agent definitions",
+      "action": "Validate all .github/agents/*/agent.json files",
+      "report": "Agent configuration validation results"
+    }
+  ],
+  "common_issues": {
+    "syntax_errors": {
+      "description": "Invalid JSON/YAML/TOML syntax",
+      "fix": "Use JSON validator or linter to fix syntax"
+    },
+    "missing_fields": {
+      "description": "Required fields not present",
+      "fix": "Add required fields based on schema"
+    },
+    "broken_references": {
+      "description": "Referenced files don't exist",
+      "fix": "Update paths or create missing files"
+    },
+    "exposed_secrets": {
+      "description": "API keys or tokens in config files",
+      "fix": "Move to environment variables or secure storage"
+    }
+  },
+  "severity_levels": {
+    "error": "Must be fixed - config will not work",
+    "warning": "Should be fixed - may cause issues",
+    "info": "Optional improvement suggestion"
+  }
+}

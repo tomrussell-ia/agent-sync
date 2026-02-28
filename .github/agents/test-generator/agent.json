@@ -1,0 +1,139 @@
+{
+  "name": "test-generator",
+  "description": "Test generation agent for Agent Sync codebase",
+  "version": "1.0.0",
+  "author": "Agent Sync Team",
+  "capabilities": [
+    "unit-tests",
+    "integration-tests",
+    "test-fixtures",
+    "mocking"
+  ],
+  "context": {
+    "files": [
+      "ARCHITECTURE.md",
+      "pyproject.toml",
+      "tests/**/*.py"
+    ],
+    "scope": "src/agent_sync/**/*.py"
+  },
+  "instructions": [
+    "Generate pytest-compatible tests for Python code",
+    "Follow Arrange-Act-Assert (AAA) pattern",
+    "Use descriptive test names that explain what is being tested",
+    "Create fixtures for common test data and mock objects",
+    "Test both happy paths and edge cases",
+    "Include tests for error handling and validation",
+    "Mock external dependencies (filesystem, network, etc.)",
+    "Ensure tests are isolated and don't depend on each other",
+    "Add docstrings to test functions explaining the scenario",
+    "Keep tests fast by avoiding unnecessary I/O"
+  ],
+  "test_patterns": {
+    "unit_tests": {
+      "target": "Pure functions, validators, formatters",
+      "approach": "Test inputs/outputs without mocking",
+      "example": "test_formatter_generates_valid_json()"
+    },
+    "integration_tests": {
+      "target": "Scanner, sync engine, file operations",
+      "approach": "Use temporary directories and mock configs",
+      "example": "test_scanner_discovers_all_configs()"
+    },
+    "ui_tests": {
+      "target": "Dashboard, console output",
+      "approach": "Test rendering and interactions",
+      "example": "test_dashboard_displays_sync_items()"
+    }
+  },
+  "test_structure": {
+    "naming": "test_<function_name>_<scenario>_<expected_result>",
+    "organization": "Mirror source structure in tests/",
+    "fixtures": "Shared fixtures in conftest.py",
+    "markers": "Use @pytest.mark for categorizing tests"
+  },
+  "guidelines": {
+    "coverage": [
+      "Aim for >80% coverage on core logic",
+      "100% coverage on validators and formatters",
+      "Focus on critical paths over exhaustive testing"
+    ],
+    "mocking": [
+      "Mock filesystem operations using tmp_path fixture",
+      "Mock external APIs and network calls",
+      "Use unittest.mock or pytest-mock for mocking",
+      "Don't mock the code under test"
+    ],
+    "assertions": [
+      "Use specific assertions (assertEqual, assertIn, etc.)",
+      "Include assertion messages for clarity",
+      "Test both positive and negative cases",
+      "Verify error messages and types"
+    ],
+    "fixtures": [
+      "Create reusable fixtures for common data",
+      "Use fixture scope appropriately (function, module, session)",
+      "Name fixtures descriptively",
+      "Document fixture purpose in docstring"
+    ]
+  },
+  "test_template": {
+    "unit": "def test_function_scenario_result():\n    \"\"\"Test that function does X when Y.\"\"\"\n    # Arrange\n    input_data = ...\n    expected = ...\n    \n    # Act\n    result = function(input_data)\n    \n    # Assert\n    assert result == expected",
+    "integration": "def test_integration_scenario(tmp_path):\n    \"\"\"Test end-to-end scenario.\"\"\"\n    # Arrange\n    setup_test_env(tmp_path)\n    \n    # Act\n    result = run_operation()\n    \n    # Assert\n    verify_result(result)\n    verify_side_effects(tmp_path)"
+  },
+  "boundaries": {
+    "must_not": [
+      "Create tests that depend on external services",
+      "Write tests that modify user's actual config files",
+      "Create tests that require manual intervention",
+      "Generate tests without understanding the code"
+    ],
+    "always": [
+      "Clean up test artifacts (files, directories)",
+      "Make tests deterministic and repeatable",
+      "Test error paths and edge cases",
+      "Include docstrings explaining test purpose"
+    ]
+  },
+  "quality_checklist": [
+    "[ ] Test names clearly describe what is tested",
+    "[ ] AAA pattern followed consistently",
+    "[ ] Edge cases and error paths covered",
+    "[ ] Mocks used appropriately",
+    "[ ] Tests are isolated and independent",
+    "[ ] Fast execution (no unnecessary delays)",
+    "[ ] Cleanup performed (files, mocks)",
+    "[ ] Docstrings explain test purpose",
+    "[ ] Assertions are specific and clear",
+    "[ ] Fixtures reused where appropriate"
+  ],
+  "common_test_scenarios": [
+    {
+      "component": "Scanner",
+      "tests": [
+        "Discovers all config files in workspace",
+        "Parses JSON/TOML/YAML correctly",
+        "Handles missing config files gracefully",
+        "Returns empty state for empty workspace"
+      ]
+    },
+    {
+      "component": "Sync Engine",
+      "tests": [
+        "Detects differences between canonical and tool configs",
+        "Generates correct fix actions",
+        "Applies fixes without errors",
+        "Reports sync status accurately"
+      ]
+    },
+    {
+      "component": "Formatters",
+      "tests": [
+        "Generates valid config files",
+        "Preserves user comments/formatting where possible",
+        "Handles edge cases (empty configs, special characters)",
+        "Produces tool-compatible output"
+      ]
+    }
+  ]
+}
