@@ -36,6 +36,32 @@ This installs two global commands:
 - `agent-sync` - Full command name
 - `async` - Short alias for convenience
 
+**Troubleshooting:** If commands aren't recognized after installation:
+
+**Windows:**
+```powershell
+# Restart your terminal, or add to PATH manually if needed:
+$env:PATH += ";$env:USERPROFILE\.local\bin"
+
+# Or add permanently:
+[Environment]::SetEnvironmentVariable("PATH", "$env:PATH;$env:USERPROFILE\.local\bin", "User")
+```
+
+**Unix/macOS:**
+```bash
+# Restart your terminal, or add to shell config if needed:
+export PATH="$HOME/.local/bin:$PATH"
+
+# Add to ~/.bashrc, ~/.zshrc, or ~/.profile:
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+```
+
+Verify installation:
+```bash
+agent-sync --version
+async --version
+```
+
 ### Local Development Installation
 
 Using [uv](https://docs.astral.sh/uv/) (recommended):
