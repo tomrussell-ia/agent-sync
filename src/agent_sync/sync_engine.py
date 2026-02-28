@@ -59,10 +59,22 @@ def _compare_mcp(
     canonical: CanonicalState,
     tool_configs: dict[ToolName, ToolConfig],
 ) -> list[SyncItem]:
-    """Compare canonical MCP servers against each tool's config."""
+    """Compare canonical MCP servers against each tool's config.
+    
+    Respects user config mcp.ignore_servers to skip specific servers.
+    """
+    from agent_sync.user_config import get_user_config
+    
+    user_cfg = get_user_config()
+    ignored_servers = {_mcp_name_normalize(name) for name in user_cfg.mcp.ignore_servers}
+    
     items: list[SyncItem] = []
 
     for srv in canonical.mcp_servers:
+        # Skip ignored servers
+        if _mcp_name_normalize(srv.name) in ignored_servers:
+            continue
+            
         for tool_name in [ToolName.COPILOT, ToolName.CLAUDE, ToolName.CODEX]:
             tc = tool_configs.get(tool_name)
             if not tc:
@@ -146,7 +158,14 @@ def _compare_mcp(
     canonical_names = {_mcp_name_normalize(s.name) for s in canonical.mcp_servers}
     for tool_name, tc in tool_configs.items():
         for ts in tc.mcp_servers:
-            if _mcp_name_normalize(ts.name) not in canonical_names:
+            norm_name = _mcp_name_normalize(ts.name)
+            
+            # Skip if in canonical or ignored
+            if norm_name in canonical_names or norm_name in ignored_servers:
+                continue
+            
+            # Only flag as drift if ignore_extra_servers is False
+            if not user_cfg.tools.ignore_extra_servers:
                 items.append(
                     SyncItem(
                         content_type="mcp",

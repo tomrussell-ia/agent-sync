@@ -23,7 +23,6 @@ else:
 import contextlib
 
 from agent_sync.config import (
-    AGENTS_DIR,
     CANONICAL_COMMANDS_DIR,
     CANONICAL_SKILLS_DIR,
     CLAUDE_CODE_CONFIG_JSON,
@@ -38,10 +37,11 @@ from agent_sync.config import (
     COPILOT_CONFIG_JSON,
     COPILOT_INSTALLED_PLUGINS,
     COPILOT_MCP_CONFIG_JSON,
-    IA_SKILLS_HUB_DIR,
     MCP_JSON,
     SKILL_FILE,
     SKILL_LOCK_JSON,
+    get_agents_dir,
+    get_ia_skills_hub_dir,
 )
 from agent_sync.models import (
     Agent,
@@ -309,13 +309,14 @@ def scan_canonical_commands() -> list[Command]:
 def scan_product_workflows() -> list[ProductWorkflow]:
     """Discover product-specific workflow directories under .agents/."""
     workflows: list[ProductWorkflow] = []
-    if not AGENTS_DIR.exists():
+    agents_dir = get_agents_dir()
+    if not agents_dir.exists():
         return workflows
 
     # Skip hidden dirs and known non-product dirs
     skip = {".claude", "skills", "tools", "commands"}
 
-    for d in sorted(AGENTS_DIR.iterdir()):
+    for d in sorted(agents_dir.iterdir()):
         if not d.is_dir() or d.name.startswith(".") or d.name in skip:
             continue
 
@@ -375,10 +376,11 @@ def scan_available_plugins() -> list[Plugin]:
     """Scan ia-skills-hub repository for available Copilot plugins."""
     plugins: list[Plugin] = []
 
-    if not IA_SKILLS_HUB_DIR or not IA_SKILLS_HUB_DIR.exists():
+    ia_skills_hub = get_ia_skills_hub_dir()
+    if not ia_skills_hub or not ia_skills_hub.exists():
         return plugins
 
-    plugins_dir = IA_SKILLS_HUB_DIR / "plugins"
+    plugins_dir = ia_skills_hub / "plugins"
     if not plugins_dir.exists():
         return plugins
 
@@ -539,7 +541,7 @@ def scan_claude() -> ToolConfig:
                     if not any(s.name == sd.name for s in cfg.skills):
                         cfg.skills.append(Skill(name=sd.name, path=sd))
         # If pointing to .agents root
-        elif resolved == AGENTS_DIR.resolve() and canonical_skills.exists():
+        elif resolved == get_agents_dir().resolve() and canonical_skills.exists():
             # Add all canonical skills as accessible via subdirectory
             for sd in canonical_skills.iterdir():
                 if sd.is_dir() and (sd / SKILL_FILE).exists():
@@ -619,7 +621,7 @@ def scan_codex() -> ToolConfig:
 
 def scan_canonical(agents_dir: Path | None = None) -> CanonicalState:
     """Build the full canonical state from .agents/."""
-    root = agents_dir or AGENTS_DIR
+    root = agents_dir or get_agents_dir()
     return CanonicalState(
         agents_dir=root,
         mcp_servers=scan_canonical_mcp(),
@@ -632,9 +634,24 @@ def scan_canonical(agents_dir: Path | None = None) -> CanonicalState:
 
 
 def scan_all_tools() -> dict[ToolName, ToolConfig]:
-    """Scan all supported tools and return a dict keyed by ToolName."""
-    return {
-        ToolName.COPILOT: scan_copilot(),
-        ToolName.CLAUDE: scan_claude(),
-        ToolName.CODEX: scan_codex(),
-    }
+    """Scan all tool configs and return per-tool state.
+    
+    Respects user config tools.enabled setting to filter which tools are scanned.
+    """
+    from agent_sync.user_config import get_user_config
+    
+    # Check which tools are enabled in user config
+    user_cfg = get_user_config()
+    enabled_tool_names = user_cfg.tools.enabled
+    
+    tools: dict[ToolName, ToolConfig] = {}
+    
+    # Only scan enabled tools
+    if "copilot" in enabled_tool_names:
+        tools[ToolName.COPILOT] = scan_copilot()
+    if "claude" in enabled_tool_names:
+        tools[ToolName.CLAUDE] = scan_claude()
+    if "codex" in enabled_tool_names:
+        tools[ToolName.CODEX] = scan_codex()
+    
+    return tools

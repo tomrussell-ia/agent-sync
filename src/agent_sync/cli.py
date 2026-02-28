@@ -562,3 +562,138 @@ def probe(
     # Exit with non-zero if any filtered probes errored
     if any(r.status.value == "error" for r in filtered_results):
         sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# config command group
+# ---------------------------------------------------------------------------
+
+
+@main.group()
+def config() -> None:
+    """Manage ~/.agent-sync.toml user configuration."""
+
+
+@config.command()
+def init() -> None:
+    """Generate example ~/.agent-sync.toml with current detected paths."""
+    from pathlib import Path
+    from agent_sync.user_config import USER_CONFIG_PATH
+    from agent_sync.config import HOME
+    
+    if USER_CONFIG_PATH.exists():
+        console.print(f"[yellow]Config file already exists at {USER_CONFIG_PATH}[/yellow]")
+        console.print("Run 'agent-sync config show' to view current config")
+        sys.exit(1)
+    
+    # Generate example with common defaults
+    example = f"""# Agent-Sync User Configuration
+# This file overrides built-in defaults for paths, tool settings, and preferences.
+# All settings are optional - delete any section you don't need to customize.
+
+[paths]
+# Override directory locations (paths are expanded with ~)
+# agents_dir = "~/.agents"
+# copilot_dir = "~/.copilot"
+# claude_dir = "~/.claude"
+# codex_dir = "~/.codex"
+# ia_skills_hub = "~/repos/github.com/integralanalytics/ia-skills-hub"
+
+[tools]
+# Which tools to sync (comment out to disable a tool)
+enabled = ["copilot", "claude", "codex"]
+# Don't flag extra servers as drift
+# ignore_extra_servers = false
+
+[mcp]
+# Servers to ignore during sync checks
+# ignore_servers = ["github"]
+# Always add MCP servers to user config (not project-specific)
+# force_user_scope = true
+
+[scan]
+# Additional product workflow directories to scan
+# product_dirs = ["~/repos/LoadSEERNext", "~/repos/LSStudio"]
+# Skip JSON schema validation for faster scans
+# skip_validation = false
+
+[output]
+# Output format: "auto", "json", "table", or "dashboard"
+# format = "auto"
+# Verbosity: "quiet", "normal", or "verbose"
+# verbosity = "normal"
+# Color: "auto", "always", or "never"
+# color = "auto"
+"""
+    
+    USER_CONFIG_PATH.write_text(example, encoding="utf-8")
+    console.print(f"[green]✓[/green] Created example config at {USER_CONFIG_PATH}")
+    console.print("Edit the file to customize settings, then run 'agent-sync config validate'")
+
+
+@config.command()
+def show() -> None:
+    """Display effective configuration (merged defaults + user overrides)."""
+    from agent_sync.user_config import get_user_config, USER_CONFIG_PATH
+    
+    cfg = get_user_config()
+    
+    console.print(f"\n[bold]Configuration Source:[/bold] {USER_CONFIG_PATH}")
+    console.print(f"[dim]File exists: {USER_CONFIG_PATH.exists()}[/dim]\n")
+    
+    console.print("[bold cyan][paths][/bold cyan]")
+    console.print(f"  agents_dir:    {cfg.paths.agents_dir}")
+    console.print(f"  copilot_dir:   {cfg.paths.copilot_dir}")
+    console.print(f"  claude_dir:    {cfg.paths.claude_dir}")
+    console.print(f"  codex_dir:     {cfg.paths.codex_dir}")
+    console.print(f"  ia_skills_hub: {cfg.paths.ia_skills_hub or '(auto-discover)'}")
+    
+    console.print(f"\n[bold cyan][tools][/bold cyan]")
+    console.print(f"  enabled:              {cfg.tools.enabled}")
+    console.print(f"  ignore_extra_servers: {cfg.tools.ignore_extra_servers}")
+    
+    console.print(f"\n[bold cyan][mcp][/bold cyan]")
+    console.print(f"  ignore_servers:   {cfg.mcp.ignore_servers}")
+    console.print(f"  force_user_scope: {cfg.mcp.force_user_scope}")
+    
+    console.print(f"\n[bold cyan][scan][/bold cyan]")
+    console.print(f"  product_dirs:    {cfg.scan.product_dirs}")
+    console.print(f"  skip_validation: {cfg.scan.skip_validation}")
+    
+    console.print(f"\n[bold cyan][output][/bold cyan]")
+    console.print(f"  format:    {cfg.output.format}")
+    console.print(f"  verbosity: {cfg.output.verbosity}")
+    console.print(f"  color:     {cfg.output.color}")
+
+
+@config.command()
+def validate() -> None:
+    """Validate ~/.agent-sync.toml syntax and paths."""
+    from agent_sync.user_config import USER_CONFIG_PATH, get_user_config, validate_user_config
+    
+    if not USER_CONFIG_PATH.exists():
+        console.print(f"[yellow]No config file found at {USER_CONFIG_PATH}[/yellow]")
+        console.print("Run 'agent-sync config init' to create an example config")
+        sys.exit(0)
+    
+    try:
+        cfg = get_user_config()
+        errors = validate_user_config(cfg)
+        
+        if errors:
+            console.print(f"[red]✗ Config validation failed:[/red]")
+            for err in errors:
+                console.print(f"  • {err}")
+            sys.exit(1)
+        else:
+            console.print(f"[green]✓ Config is valid[/green]")
+            console.print(f"  Path: {USER_CONFIG_PATH}")
+            console.print(f"  Tools enabled: {', '.join(cfg.tools.enabled)}")
+            
+    except Exception as e:
+        console.print(f"[red]✗ Failed to load config:[/red] {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

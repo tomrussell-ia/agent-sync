@@ -96,6 +96,66 @@ cd agent-sync
 pip install -e ".[dev]"
 ```
 
+## Configuration
+
+Agent-sync works out-of-the-box with zero configuration, but you can customize behavior with an optional user config file at `~/.agent-sync.toml`.
+
+### Config Commands
+
+```bash
+# Generate example config with all available settings
+agent-sync config init
+
+# View current effective configuration
+agent-sync config show
+
+# Validate config file syntax and paths
+agent-sync config validate
+```
+
+### Configuration Options
+
+**`[paths]`** - Override default tool directory locations
+```toml
+[paths]
+agents_dir = "~/.agents"
+copilot_dir = "~/.copilot"
+claude_dir = "~/.claude"
+codex_dir = "~/.codex"
+ia_skills_hub = "~/repos/github.com/integralanalytics/ia-skills-hub"
+```
+
+**`[tools]`** - Control which tools to sync
+```toml
+[tools]
+enabled = ["copilot", "claude", "codex"]  # Disable a tool by removing from list
+ignore_extra_servers = false              # Don't flag extra servers as drift
+```
+
+**`[mcp]`** - MCP server filtering
+```toml
+[mcp]
+ignore_servers = ["github"]     # Skip specific servers during sync
+force_user_scope = true          # Always add MCP servers to user config
+```
+
+**`[scan]`** - Additional scanning options
+```toml
+[scan]
+product_dirs = ["~/repos/my-product"]  # Additional workflow directories
+skip_validation = false                 # Skip JSON schema validation for speed
+```
+
+**`[output]`** - Output preferences
+```toml
+[output]
+format = "auto"      # "auto", "json", "table", or "dashboard"
+verbosity = "normal" # "quiet", "normal", or "verbose"
+color = "auto"       # "auto", "always", or "never"
+```
+
+All settings are optional - comment out or delete any section you don't need.
+
 ## Usage
 
 After global installation:
