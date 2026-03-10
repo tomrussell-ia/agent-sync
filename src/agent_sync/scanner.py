@@ -246,7 +246,7 @@ def _scan_commands_dir(
     base_dir: Path,
     *,
     namespace_from_folder: bool = True,
-    _slug_prefix_strip: str = "",
+    _slug_prefix_strip: str = "",  # reserved for future slug normalization
 ) -> list[Command]:
     """Scan a directory tree for markdown command/prompt files."""
     commands: list[Command] = []

@@ -30,9 +30,9 @@ def _is_junction(path: Path) -> bool:
     # On Windows, check for junction
     if sys.platform == "win32":
         try:
-            file_attribute_reparse_point = 0x0400
+            FILE_ATTRIBUTE_REPARSE_POINT = 0x0400  # noqa: N806
             attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))  # type: ignore[attr-defined]
-            return bool(attrs & file_attribute_reparse_point)
+            return bool(attrs & FILE_ATTRIBUTE_REPARSE_POINT)
         except (AttributeError, OSError):
             pass
     return False
