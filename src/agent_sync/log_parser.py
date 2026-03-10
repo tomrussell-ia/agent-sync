@@ -73,13 +73,11 @@ _RE_MCP_CONNECTED = re.compile(
     r"MCP client for (?P<name>\S+) connected,\s+took (?P<ms>\d+)ms$"
 )
 
-# "MCP client for Context7 errored Error: SSE stream disconnected: ..."
 _RE_MCP_ERRORED = re.compile(
     r"^(?P<ts>[\dT:.Z-]+)\s+\[ERROR\]\s+"
     r"MCP client for (?P<name>\S+) errored\s+(?P<detail>.+)$"
 )
 
-# "Starting remote MCP client for GitBooks-LoadSEER-Docs with url: ..."
 _RE_MCP_STARTING = re.compile(
     r"^(?P<ts>[\dT:.Z-]+)\s+\[ERROR\]\s+"
     r"Starting (?:remote )?MCP client for (?P<name>\S+)"
@@ -103,12 +101,12 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
         return events, errors
 
     for line in text.splitlines():
-        line = line.strip()
-        if not line:
+        stripped = line.strip()
+        if not stripped:
             continue
 
         # Connected
-        m = _RE_MCP_CONNECTED.match(line)
+        m = _RE_MCP_CONNECTED.match(stripped)
         if m:
             events.append(
                 McpLogEvent(
@@ -121,7 +119,7 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
             continue
 
         # Errored
-        m = _RE_MCP_ERRORED.match(line)
+        m = _RE_MCP_ERRORED.match(stripped)
         if m:
             events.append(
                 McpLogEvent(
@@ -134,7 +132,7 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
             continue
 
         # Starting
-        m = _RE_MCP_STARTING.match(line)
+        m = _RE_MCP_STARTING.match(stripped)
         if m:
             events.append(
                 McpLogEvent(
@@ -146,7 +144,7 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
             continue
 
         # Connecting
-        m = _RE_MCP_CONNECTING.match(line)
+        m = _RE_MCP_CONNECTING.match(stripped)
         if m:
             events.append(
                 McpLogEvent(
@@ -163,10 +161,8 @@ def _parse_copilot_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
 # Codex log patterns
 # ---------------------------------------------------------------------------
 
-# "2026-01-27T20:08:54.828398Z ERROR codex_core::auth: Failed to refresh token: ..."
 _RE_CODEX_AUTH_ERROR = re.compile(r"^(?P<ts>[\dT:.Z-]+)\s+ERROR\s+codex_core::auth:\s+(?P<msg>.+)$")
 
-# "2026-01-27T... ERROR codex_core::models_manager::manager: ..."
 _RE_CODEX_MODEL_ERROR = re.compile(
     r"^(?P<ts>[\dT:.Z-]+)\s+ERROR\s+codex_core::(?P<module>[^:]+).*?:\s+(?P<msg>.+)$"
 )
@@ -183,12 +179,12 @@ def _parse_codex_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
         return events, errors
 
     for line in text.splitlines():
-        line = line.strip()
-        if not line:
+        stripped = line.strip()
+        if not stripped:
             continue
 
         # Auth errors
-        m = _RE_CODEX_AUTH_ERROR.match(line)
+        m = _RE_CODEX_AUTH_ERROR.match(stripped)
         if m:
             errors.append(
                 LogError(
@@ -201,7 +197,7 @@ def _parse_codex_log(path: Path) -> tuple[list[McpLogEvent], list[LogError]]:
             continue
 
         # Other errors
-        m = _RE_CODEX_MODEL_ERROR.match(line)
+        m = _RE_CODEX_MODEL_ERROR.match(stripped)
         if m and "auth" not in m.group("module"):
             errors.append(
                 LogError(

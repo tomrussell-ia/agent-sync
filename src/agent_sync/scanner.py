@@ -27,7 +27,6 @@ from agent_sync.config import (
     CANONICAL_SKILLS_DIR,
     CLAUDE_CODE_CONFIG_JSON,
     CLAUDE_COMMANDS_DIR,
-    CLAUDE_DESKTOP_CONFIG_JSON,
     CLAUDE_SETTINGS_JSON,
     CLAUDE_SKILLS_DIR,
     CLAUDE_SYMLINK_SKILLS,
@@ -55,6 +54,7 @@ from agent_sync.models import (
     ToolConfig,
     ToolName,
 )
+from agent_sync.user_config import get_user_config
 
 
 # ---------------------------------------------------------------------------
@@ -85,10 +85,10 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
 
     fm: dict = {}
     for line in fm_block.splitlines():
-        line = line.strip()
-        if ":" not in line:
+        stripped = line.strip()
+        if ":" not in stripped:
             continue
-        key, _, value = line.partition(":")
+        key, _, value = stripped.partition(":")
         key = key.strip()
         value = value.strip()
         # Parse simple YAML values
@@ -246,7 +246,7 @@ def _scan_commands_dir(
     base_dir: Path,
     *,
     namespace_from_folder: bool = True,
-    slug_prefix_strip: str = "",
+    _slug_prefix_strip: str = "",
 ) -> list[Command]:
     """Scan a directory tree for markdown command/prompt files."""
     commands: list[Command] = []
@@ -306,7 +306,7 @@ def scan_canonical_commands() -> list[Command]:
 # ---------------------------------------------------------------------------
 
 
-def scan_product_workflows() -> list[ProductWorkflow]:
+def scan_product_workflows() -> list[ProductWorkflow]:  # noqa: C901, PLR0912
     """Discover product-specific workflow directories under .agents/."""
     workflows: list[ProductWorkflow] = []
     agents_dir = get_agents_dir()
@@ -403,8 +403,7 @@ def scan_available_plugins() -> list[Plugin]:
                     category=pdata.get("category", ""),
                 )
             )
-        except Exception:
-            # Skip malformed plugin.json files
+        except Exception:  # noqa: S112
             continue
 
     return plugins
@@ -415,7 +414,7 @@ def scan_available_plugins() -> list[Plugin]:
 # ---------------------------------------------------------------------------
 
 
-def scan_copilot() -> ToolConfig:
+def scan_copilot() -> ToolConfig:  # noqa: C901, PLR0912
     """Scan GitHub Copilot CLI configuration."""
     cfg = ToolConfig(tool=ToolName.COPILOT, config_path=COPILOT_CONFIG_JSON)
 
@@ -442,7 +441,7 @@ def scan_copilot() -> ToolConfig:
     # Additional directories - validate and count skills
     additional_dirs = config_data.get("additionalDirectories", [])
     cfg.extra_info["additional_directories"] = ", ".join(additional_dirs)
-    
+
     # Validate additionalDirectories and count accessible skills
     canonical_skills = CANONICAL_SKILLS_DIR.resolve()
     for d in additional_dirs:
@@ -450,16 +449,19 @@ def scan_copilot() -> ToolConfig:
         if not d_path.exists():
             cfg.extra_info["additional_dirs_warning"] = f"Path does not exist: {d}"
             continue
-            
+
         resolved = d_path.resolve()
-        
+
         # If pointing to canonical skills directory
         if resolved == canonical_skills:
             # Add all canonical skills as accessible
             for sd in canonical_skills.iterdir():
-                if sd.is_dir() and (sd / SKILL_FILE).exists():
-                    if not any(s.name == sd.name for s in cfg.skills):
-                        cfg.skills.append(Skill(name=sd.name, path=sd))
+                if (
+                    sd.is_dir()
+                    and (sd / SKILL_FILE).exists()
+                    and not any(s.name == sd.name for s in cfg.skills)
+                ):
+                    cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Installed plugin skills
     if COPILOT_INSTALLED_PLUGINS.exists():
@@ -468,9 +470,12 @@ def scan_copilot() -> ToolConfig:
             skills_dir = plugin_dir.parent / "skills"
             if skills_dir.exists():
                 for sd in skills_dir.iterdir():
-                    if sd.is_dir() and (sd / SKILL_FILE).exists():
-                        if not any(s.name == sd.name for s in cfg.skills):
-                            cfg.skills.append(Skill(name=sd.name, path=sd))
+                    if (
+                        sd.is_dir()
+                        and (sd / SKILL_FILE).exists()
+                        and not any(s.name == sd.name for s in cfg.skills)
+                    ):
+                        cfg.skills.append(Skill(name=sd.name, path=sd))
 
             # Agents
             agents_dir = plugin_dir.parent / "agents"
@@ -486,7 +491,7 @@ def scan_copilot() -> ToolConfig:
 # ---------------------------------------------------------------------------
 
 
-def scan_claude() -> ToolConfig:
+def scan_claude() -> ToolConfig:  # noqa: C901, PLR0912
     """Scan Claude Code configuration."""
     cfg = ToolConfig(tool=ToolName.CLAUDE, config_path=CLAUDE_SETTINGS_JSON)
 
@@ -514,15 +519,17 @@ def scan_claude() -> ToolConfig:
             claude_config = json.loads(CLAUDE_CODE_CONFIG_JSON.read_text(encoding="utf-8"))
             # Claude Code stores user-level config in mcpServers at root
             user_servers = claude_config.get("mcpServers", {})
-            for server_name in user_servers.keys():
+            for server_name in user_servers:
                 # Add if not already detected from permissions
                 if not any(s.name == server_name for s in cfg.mcp_servers):
-                    cfg.mcp_servers.append(McpServer(name=server_name, server_type=McpServerType.LOCAL))
+                    cfg.mcp_servers.append(
+                        McpServer(name=server_name, server_type=McpServerType.LOCAL)
+                    )
 
     # Additional directories - validate and count skills
     additional_dirs = settings.get("permissions", {}).get("additionalDirectories", [])
     cfg.extra_info["additional_directories"] = ", ".join(additional_dirs)
-    
+
     # Validate additionalDirectories and count accessible skills
     canonical_skills = CANONICAL_SKILLS_DIR.resolve()
     for d in additional_dirs:
@@ -530,23 +537,29 @@ def scan_claude() -> ToolConfig:
         if not d_path.exists():
             cfg.extra_info["additional_dirs_warning"] = f"Path does not exist: {d}"
             continue
-            
+
         resolved = d_path.resolve()
-        
+
         # If pointing to canonical skills directory
         if resolved == canonical_skills:
             # Add all canonical skills as accessible
             for sd in canonical_skills.iterdir():
-                if sd.is_dir() and (sd / SKILL_FILE).exists():
-                    if not any(s.name == sd.name for s in cfg.skills):
-                        cfg.skills.append(Skill(name=sd.name, path=sd))
+                if (
+                    sd.is_dir()
+                    and (sd / SKILL_FILE).exists()
+                    and not any(s.name == sd.name for s in cfg.skills)
+                ):
+                    cfg.skills.append(Skill(name=sd.name, path=sd))
         # If pointing to .agents root
         elif resolved == get_agents_dir().resolve() and canonical_skills.exists():
             # Add all canonical skills as accessible via subdirectory
             for sd in canonical_skills.iterdir():
-                if sd.is_dir() and (sd / SKILL_FILE).exists():
-                    if not any(s.name == sd.name for s in cfg.skills):
-                        cfg.skills.append(Skill(name=sd.name, path=sd))
+                if (
+                    sd.is_dir()
+                    and (sd / SKILL_FILE).exists()
+                    and not any(s.name == sd.name for s in cfg.skills)
+                ):
+                    cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Check symlink to skills
     if CLAUDE_SYMLINK_SKILLS.exists():
@@ -555,16 +568,22 @@ def scan_claude() -> ToolConfig:
             cfg.extra_info["skills_symlink_target"] = str(CLAUDE_SYMLINK_SKILLS.resolve())
         # Count skills accessible via symlink
         for sd in CLAUDE_SYMLINK_SKILLS.iterdir():
-            if sd.is_dir() and (sd / SKILL_FILE).exists():
-                if not any(s.name == sd.name for s in cfg.skills):
-                    cfg.skills.append(Skill(name=sd.name, path=sd))
+            if (
+                sd.is_dir()
+                and (sd / SKILL_FILE).exists()
+                and not any(s.name == sd.name for s in cfg.skills)
+            ):
+                cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Direct skills in ~/.claude/skills/
     if CLAUDE_SKILLS_DIR.exists():
         for sd in CLAUDE_SKILLS_DIR.iterdir():
-            if sd.is_dir() and (sd / SKILL_FILE).exists():
-                if not any(s.name == sd.name for s in cfg.skills):
-                    cfg.skills.append(Skill(name=sd.name, path=sd))
+            if (
+                sd.is_dir()
+                and (sd / SKILL_FILE).exists()
+                and not any(s.name == sd.name for s in cfg.skills)
+            ):
+                cfg.skills.append(Skill(name=sd.name, path=sd))
 
     # Commands
     cfg.commands = _scan_commands_dir(CLAUDE_COMMANDS_DIR, namespace_from_folder=True)
@@ -635,17 +654,15 @@ def scan_canonical(agents_dir: Path | None = None) -> CanonicalState:
 
 def scan_all_tools() -> dict[ToolName, ToolConfig]:
     """Scan all tool configs and return per-tool state.
-    
+
     Respects user config tools.enabled setting to filter which tools are scanned.
     """
-    from agent_sync.user_config import get_user_config
-    
     # Check which tools are enabled in user config
     user_cfg = get_user_config()
     enabled_tool_names = user_cfg.tools.enabled
-    
+
     tools: dict[ToolName, ToolConfig] = {}
-    
+
     # Only scan enabled tools
     if "copilot" in enabled_tool_names:
         tools[ToolName.COPILOT] = scan_copilot()
@@ -653,5 +670,5 @@ def scan_all_tools() -> dict[ToolName, ToolConfig]:
         tools[ToolName.CLAUDE] = scan_claude()
     if "codex" in enabled_tool_names:
         tools[ToolName.CODEX] = scan_codex()
-    
+
     return tools
