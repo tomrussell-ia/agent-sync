@@ -155,6 +155,20 @@ def generate_claude_mcp_permissions(servers: list[McpServer]) -> list[str]:
     return perms
 
 
+def _build_claude_mcp_entry(srv: McpServer) -> dict:
+    entry: dict = {}
+    if srv.url:
+        entry["type"] = "http"
+        entry["url"] = srv.url
+        if srv.headers:
+            entry["headers"] = srv.headers
+    if srv.command:
+        entry["command"] = srv.command
+    if srv.args:
+        entry["args"] = srv.args
+    return entry
+
+
 def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:  # noqa: C901, PLR0912, PLR0915
     """Write Claude MCP config to both settings.json and Desktop config.
 
@@ -165,6 +179,7 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     Returns description of what was/would be done.
     """
     perms = generate_claude_mcp_permissions(servers)
+    claude_server_count = sum(1 for s in servers if ToolName.CLAUDE in s.enabled_for)
 
     # Update settings.json (permissions)
     settings_target = CLAUDE_SETTINGS_JSON
@@ -215,39 +230,24 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
             for srv in servers:
                 if ToolName.CLAUDE not in srv.enabled_for:
                     continue
-
-                entry: dict = {}
-                if srv.url:
-                    entry["type"] = "http"
-                    entry["url"] = srv.url
-                    if srv.headers:
-                        entry["headers"] = srv.headers
-                if srv.command:
-                    entry["command"] = srv.command
-                if srv.args:
-                    entry["args"] = srv.args
-
-                existing["mcpServers"][srv.name] = entry
+                existing["mcpServers"][srv.name] = _build_claude_mcp_entry(srv)
 
             new_text = json.dumps(existing, indent=2) + "\n"
 
             if not dry_run:
                 desktop_target.write_text(new_text, encoding="utf-8")
-            desktop_msg = (
-                f"desktop: {len([s for s in servers if ToolName.CLAUDE in s.enabled_for])} servers"
-            )
+            desktop_msg = f"desktop: {claude_server_count} servers"
         except (json.JSONDecodeError, OSError) as e:
             desktop_msg = f"Error: {e}"
     else:
         desktop_msg = "desktop config not found"
 
     # Update ~/.claude.json (Claude Code config)
-    code_target = CLAUDE_CODE_CONFIG_JSON
     code_msg = ""
 
-    if code_target.exists():
+    if CLAUDE_CODE_CONFIG_JSON.exists():
         try:
-            existing = json.loads(code_target.read_text(encoding="utf-8"))
+            existing = json.loads(CLAUDE_CODE_CONFIG_JSON.read_text(encoding="utf-8"))
 
             if "mcpServers" not in existing:
                 existing["mcpServers"] = {}
@@ -255,25 +255,13 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
             for srv in servers:
                 if ToolName.CLAUDE not in srv.enabled_for:
                     continue
-
-                entry: dict = {}
-                if srv.url:
-                    entry["type"] = "http"
-                    entry["url"] = srv.url
-                    if srv.headers:
-                        entry["headers"] = srv.headers
-                if srv.command:
-                    entry["command"] = srv.command
-                if srv.args:
-                    entry["args"] = srv.args
-
-                existing["mcpServers"][srv.name] = entry
+                existing["mcpServers"][srv.name] = _build_claude_mcp_entry(srv)
 
             new_text = json.dumps(existing, indent=2) + "\n"
 
             if not dry_run:
-                code_target.write_text(new_text, encoding="utf-8")
-            code_msg = f"code: {len([s for s in servers if ToolName.CLAUDE in s.enabled_for])} servers"
+                CLAUDE_CODE_CONFIG_JSON.write_text(new_text, encoding="utf-8")
+            code_msg = f"code: {claude_server_count} servers"
         except (json.JSONDecodeError, OSError) as e:
             code_msg = f"Error: {e}"
     else:
