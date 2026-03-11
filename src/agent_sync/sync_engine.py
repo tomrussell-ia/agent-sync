@@ -11,6 +11,7 @@ from agent_sync.formatters.commands import (
     sync_commands,
 )
 from agent_sync.formatters.mcp import (
+    write_claude_mcp,
     write_codex_mcp,
     write_copilot_mcp,
     write_vscode_mcp,
@@ -618,9 +619,8 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:  # n
             actions.append(f"MCP/codex: {msg}")
 
         if claude_servers:
-            actions.append(
-                f"MCP/claude: Skipped {len(claude_servers)} servers (manual configuration required via Claude Desktop)"
-            )
+            msg = write_claude_mcp(claude_servers, dry_run=dry_run)
+            actions.append(f"MCP/claude: {msg}")
 
         if vscode_servers:
             msg = write_vscode_mcp(vscode_servers, dry_run=dry_run)
