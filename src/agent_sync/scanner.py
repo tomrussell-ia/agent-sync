@@ -503,29 +503,15 @@ def scan_claude() -> ToolConfig:  # noqa: C901, PLR0912
         "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", ""
     )
 
-    # Detect MCP from permissions (settings.json)
-    allow = settings.get("permissions", {}).get("allow", [])
-    mcp_names: set[str] = set()
-    for perm in allow:
-        if isinstance(perm, str) and perm.startswith("mcp__"):
-            parts = perm.split("__")
-            if len(parts) >= 2:
-                mcp_names.add(parts[1])
-    for mcp_name in sorted(mcp_names):
-        cfg.mcp_servers.append(McpServer(name=mcp_name, server_type=McpServerType.LOCAL))
-
-    # Also read MCP servers from Claude Code config if available
+    # Read MCP servers from Claude Code config (~/.claude.json) — authoritative source
     if CLAUDE_CODE_CONFIG_JSON.exists():
         with contextlib.suppress(Exception):
             claude_config = json.loads(CLAUDE_CODE_CONFIG_JSON.read_text(encoding="utf-8"))
-            # Claude Code stores user-level config in mcpServers at root
             user_servers = claude_config.get("mcpServers", {})
             for server_name in user_servers:
-                # Add if not already detected from permissions
-                if not any(s.name == server_name for s in cfg.mcp_servers):
-                    cfg.mcp_servers.append(
-                        McpServer(name=server_name, server_type=McpServerType.LOCAL)
-                    )
+                cfg.mcp_servers.append(
+                    McpServer(name=server_name, server_type=McpServerType.LOCAL)
+                )
 
     # Additional directories - validate and count skills
     additional_dirs = settings.get("permissions", {}).get("additionalDirectories", [])

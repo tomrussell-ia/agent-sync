@@ -21,6 +21,7 @@ else:
 import tomli_w
 
 from agent_sync.config import (
+    CLAUDE_CODE_CONFIG_JSON,
     CLAUDE_DESKTOP_CONFIG_JSON,
     CLAUDE_SETTINGS_JSON,
     CODEX_CONFIG_TOML,
@@ -240,8 +241,46 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     else:
         desktop_msg = "desktop config not found"
 
+    # Update ~/.claude.json (Claude Code config)
+    code_target = CLAUDE_CODE_CONFIG_JSON
+    code_msg = ""
+
+    if code_target.exists():
+        try:
+            existing = json.loads(code_target.read_text(encoding="utf-8"))
+
+            if "mcpServers" not in existing:
+                existing["mcpServers"] = {}
+
+            for srv in servers:
+                if ToolName.CLAUDE not in srv.enabled_for:
+                    continue
+
+                entry: dict = {}
+                if srv.url:
+                    entry["type"] = "http"
+                    entry["url"] = srv.url
+                    if srv.headers:
+                        entry["headers"] = srv.headers
+                if srv.command:
+                    entry["command"] = srv.command
+                if srv.args:
+                    entry["args"] = srv.args
+
+                existing["mcpServers"][srv.name] = entry
+
+            new_text = json.dumps(existing, indent=2) + "\n"
+
+            if not dry_run:
+                code_target.write_text(new_text, encoding="utf-8")
+            code_msg = f"code: {len([s for s in servers if ToolName.CLAUDE in s.enabled_for])} servers"
+        except (json.JSONDecodeError, OSError) as e:
+            code_msg = f"Error: {e}"
+    else:
+        code_msg = "claude.json not found"
+
     action = "Would write" if dry_run else "Wrote"
-    return f"{action} Claude MCP ({settings_msg}, {desktop_msg})"
+    return f"{action} Claude MCP ({settings_msg}, {desktop_msg}, {code_msg})"
 
 
 # ---------------------------------------------------------------------------
