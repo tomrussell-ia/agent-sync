@@ -245,3 +245,24 @@ def run_validation(canonical: CanonicalState) -> ProbeReport:
     No async needed since we're not doing network calls or spawning processes.
     """
     return validate_all(canonical)
+
+
+def run_probe(
+    canonical: CanonicalState,
+    *,
+    skip_copilot_sdk: bool = False,  # noqa: ARG001
+    skip_stdio: bool = False,  # noqa: ARG001
+    timeout: float = 15.0,  # noqa: ARG001
+) -> ProbeReport:
+    """Run probes against the canonical state.
+
+    Parameters
+    ----------
+    canonical:
+        The canonical state from scanning agent configurations.
+    skip_copilot_sdk, skip_stdio, timeout:
+        Accepted for CLI API compatibility. The current implementation
+        is config-only (no network/process checks), so these have no
+        effect. A future network-capable implementation would honour them.
+    """
+    return validate_all(canonical)

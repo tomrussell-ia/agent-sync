@@ -22,7 +22,21 @@ import click
 from rich.console import Console
 
 from agent_sync import __version__
-from agent_sync.models import SyncStatus
+from agent_sync.console import (
+    print_log_report,
+    print_plugin_report,
+    print_probe_report,
+    print_report,
+)
+from agent_sync.dashboard import run_dashboard
+from agent_sync.log_parser import parse_logs
+from agent_sync.models import SyncStatus, ToolName
+from agent_sync.plugin_validator import validate_plugins
+from agent_sync.prober import run_probe
+from agent_sync.scanner import scan_all_tools, scan_canonical
+from agent_sync.serializers import to_dict
+from agent_sync.sync_engine import apply_fixes, build_sync_report
+from agent_sync.user_config import USER_CONFIG_PATH, get_user_config, validate_user_config
 
 
 console = Console()
@@ -61,8 +75,6 @@ def _filter_options(fn):
 
 def _filter_items(items, tool: str | None, content_type: str | None):
     """Return items matching --tool and --type filters."""
-    from agent_sync.models import ToolName
-
     filtered = list(items)
     if tool:
         tool_enum = ToolName(tool.lower())
@@ -78,8 +90,6 @@ def _filter_items(items, tool: str | None, content_type: str | None):
 
 def _filter_probe_results(results, tool: str | None):
     """Return probe results matching --tool filter."""
-    from agent_sync.models import ToolName
-
     if not tool:
         return list(results)
     tool_enum = ToolName(tool.lower())
@@ -154,7 +164,7 @@ def main(ctx: click.Context, agents_dir: str | None, verbose: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# dashboard (unchanged)
+# dashboard
 # ---------------------------------------------------------------------------
 
 
@@ -162,8 +172,6 @@ def main(ctx: click.Context, agents_dir: str | None, verbose: bool) -> None:
 @click.pass_context
 def dashboard(ctx: click.Context) -> None:
     """Launch the interactive Textual dashboard."""
-    from agent_sync.dashboard import run_dashboard
-
     run_dashboard(agents_dir=ctx.obj.get("agents_dir"))
 
 
@@ -235,7 +243,7 @@ EXAMPLES
 @_filter_options
 @click.pass_context
 def check(
-    ctx: click.Context, json_output: bool, quiet: bool, tool: str | None, content_type: str | None
+    _ctx: click.Context, json_output: bool, quiet: bool, tool: str | None, content_type: str | None
 ) -> None:
     """Compare canonical ~/.agents/ config against all tool configs.
 
@@ -243,10 +251,6 @@ def check(
     Rich table by default, or structured JSON with --json.  Exits 1 if
     any drift or missing items are found in the (optionally filtered) set.
     """
-    from agent_sync.scanner import scan_all_tools, scan_canonical
-    from agent_sync.serializers import to_dict
-    from agent_sync.sync_engine import build_sync_report
-
     canonical = scan_canonical()
     tool_configs = scan_all_tools()
     report = build_sync_report(canonical, tool_configs)
@@ -260,8 +264,6 @@ def check(
         payload["items"] = [to_dict(i) for i in filtered_items]
         click.echo(json.dumps(payload, indent=2))
     elif not quiet:
-        from agent_sync.console import print_report
-
         print_report(report, items=filtered_items)
 
     # Exit with non-zero if filtered set has issues
@@ -305,12 +307,12 @@ EXAMPLES
 @_filter_options
 @click.pass_context
 def fix(
-    ctx: click.Context,
+    _ctx: click.Context,
     dry_run: bool,
     json_output: bool,
     quiet: bool,
-    tool: str | None,
-    content_type: str | None,
+    _tool: str | None,
+    _content_type: str | None,
 ) -> None:
     """Apply all sync fixes to bring tools in line with canonical config.
 
@@ -318,10 +320,6 @@ def fix(
     the canonical ~/.agents/ state.  Use --dry-run to preview.
     Note: --tool/--type filter the output report, not the fix scope.
     """
-    from agent_sync.scanner import scan_all_tools, scan_canonical
-    from agent_sync.serializers import to_dict
-    from agent_sync.sync_engine import apply_fixes, build_sync_report
-
     canonical = scan_canonical()
     tool_configs = scan_all_tools()
     report = build_sync_report(canonical, tool_configs)
@@ -482,7 +480,7 @@ EXAMPLES
 @_output_options
 @click.option("--tool", type=_TOOL_CHOICE, default=None, help="Filter to a single tool")
 @click.pass_context
-def probe(
+def probe(  # noqa: C901
     ctx: click.Context,
     skip_copilot_sdk: bool,
     skip_stdio: bool,
@@ -499,10 +497,6 @@ def probe(
     versions, and optionally validates Copilot SDK connectivity, log
     health, and plugin manifests.  Pass --json for structured output.
     """
-    from agent_sync.prober import run_probe
-    from agent_sync.scanner import scan_canonical
-    from agent_sync.serializers import to_dict
-
     canonical = scan_canonical()
 
     if not quiet and not json_output:
@@ -529,13 +523,9 @@ def probe(
     plugin_results_list = None
 
     if log_history:
-        from agent_sync.log_parser import parse_logs
-
         log_report_obj = parse_logs()
 
     if plugins:
-        from agent_sync.plugin_validator import validate_plugins
-
         plugin_results_list = validate_plugins()
 
     if json_output:
@@ -550,8 +540,6 @@ def probe(
             payload["plugins"] = [to_dict(p) for p in plugin_results_list]
         click.echo(json.dumps(payload, indent=2))
     elif not quiet:
-        from agent_sync.console import print_log_report, print_plugin_report, print_probe_report
-
         print_probe_report(probe_report, verbose=ctx.obj.get("verbose", False))
 
         if log_report_obj is not None:
@@ -577,17 +565,13 @@ def config() -> None:
 @config.command()
 def init() -> None:
     """Generate example ~/.agent-sync.toml with current detected paths."""
-    from pathlib import Path
-    from agent_sync.user_config import USER_CONFIG_PATH
-    from agent_sync.config import HOME
-    
     if USER_CONFIG_PATH.exists():
         console.print(f"[yellow]Config file already exists at {USER_CONFIG_PATH}[/yellow]")
         console.print("Run 'agent-sync config show' to view current config")
         sys.exit(1)
-    
+
     # Generate example with common defaults
-    example = f"""# Agent-Sync User Configuration
+    example = """# Agent-Sync User Configuration
 # This file overrides built-in defaults for paths, tool settings, and preferences.
 # All settings are optional - delete any section you don't need to customize.
 
@@ -625,7 +609,7 @@ enabled = ["copilot", "claude", "codex"]
 # Color: "auto", "always", or "never"
 # color = "auto"
 """
-    
+
     USER_CONFIG_PATH.write_text(example, encoding="utf-8")
     console.print(f"[green]✓[/green] Created example config at {USER_CONFIG_PATH}")
     console.print("Edit the file to customize settings, then run 'agent-sync config validate'")
@@ -634,33 +618,31 @@ enabled = ["copilot", "claude", "codex"]
 @config.command()
 def show() -> None:
     """Display effective configuration (merged defaults + user overrides)."""
-    from agent_sync.user_config import get_user_config, USER_CONFIG_PATH
-    
     cfg = get_user_config()
-    
+
     console.print(f"\n[bold]Configuration Source:[/bold] {USER_CONFIG_PATH}")
     console.print(f"[dim]File exists: {USER_CONFIG_PATH.exists()}[/dim]\n")
-    
+
     console.print("[bold cyan][paths][/bold cyan]")
     console.print(f"  agents_dir:    {cfg.paths.agents_dir}")
     console.print(f"  copilot_dir:   {cfg.paths.copilot_dir}")
     console.print(f"  claude_dir:    {cfg.paths.claude_dir}")
     console.print(f"  codex_dir:     {cfg.paths.codex_dir}")
     console.print(f"  ia_skills_hub: {cfg.paths.ia_skills_hub or '(auto-discover)'}")
-    
-    console.print(f"\n[bold cyan][tools][/bold cyan]")
+
+    console.print("\n[bold cyan][tools][/bold cyan]")
     console.print(f"  enabled:              {cfg.tools.enabled}")
     console.print(f"  ignore_extra_servers: {cfg.tools.ignore_extra_servers}")
-    
-    console.print(f"\n[bold cyan][mcp][/bold cyan]")
+
+    console.print("\n[bold cyan][mcp][/bold cyan]")
     console.print(f"  ignore_servers:   {cfg.mcp.ignore_servers}")
     console.print(f"  force_user_scope: {cfg.mcp.force_user_scope}")
-    
-    console.print(f"\n[bold cyan][scan][/bold cyan]")
+
+    console.print("\n[bold cyan][scan][/bold cyan]")
     console.print(f"  product_dirs:    {cfg.scan.product_dirs}")
     console.print(f"  skip_validation: {cfg.scan.skip_validation}")
-    
-    console.print(f"\n[bold cyan][output][/bold cyan]")
+
+    console.print("\n[bold cyan][output][/bold cyan]")
     console.print(f"  format:    {cfg.output.format}")
     console.print(f"  verbosity: {cfg.output.verbosity}")
     console.print(f"  color:     {cfg.output.color}")
@@ -669,27 +651,25 @@ def show() -> None:
 @config.command()
 def validate() -> None:
     """Validate ~/.agent-sync.toml syntax and paths."""
-    from agent_sync.user_config import USER_CONFIG_PATH, get_user_config, validate_user_config
-    
     if not USER_CONFIG_PATH.exists():
         console.print(f"[yellow]No config file found at {USER_CONFIG_PATH}[/yellow]")
         console.print("Run 'agent-sync config init' to create an example config")
         sys.exit(0)
-    
+
     try:
         cfg = get_user_config()
         errors = validate_user_config(cfg)
-        
+
         if errors:
-            console.print(f"[red]✗ Config validation failed:[/red]")
+            console.print("[red]✗ Config validation failed:[/red]")
             for err in errors:
                 console.print(f"  • {err}")
             sys.exit(1)
         else:
-            console.print(f"[green]✓ Config is valid[/green]")
+            console.print("[green]✓ Config is valid[/green]")
             console.print(f"  Path: {USER_CONFIG_PATH}")
             console.print(f"  Tools enabled: {', '.join(cfg.tools.enabled)}")
-            
+
     except Exception as e:
         console.print(f"[red]✗ Failed to load config:[/red] {e}")
         sys.exit(1)
