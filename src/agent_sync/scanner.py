@@ -40,6 +40,7 @@ from agent_sync.config import (
     MCP_JSON,
     SKILL_FILE,
     SKILL_LOCK_JSON,
+    VSCODE_MCP_JSON,
     get_agents_dir,
     get_ia_skills_hub_dir,
 )
@@ -615,6 +616,45 @@ def scan_codex() -> ToolConfig:
 
 
 # ---------------------------------------------------------------------------
+# VS Code scanner
+# ---------------------------------------------------------------------------
+
+
+def scan_vscode() -> ToolConfig:
+    """Scan VS Code MCP configuration from the user-level mcp.json.
+
+    VS Code stores MCP servers in %APPDATA%/Code/User/mcp.json (Windows) with
+    a ``servers`` top-level key (same as the canonical format) and an optional
+    ``inputs`` array for variable substitution.
+    """
+    cfg = ToolConfig(tool=ToolName.VSCODE, config_path=VSCODE_MCP_JSON)
+
+    data = _read_json(VSCODE_MCP_JSON)
+    for name, srv in data.get("servers", {}).items():
+        # VS Code infers type from the presence of url vs command;
+        # default to stdio when type is absent and a command is present.
+        raw_type = srv.get("type", "http" if "url" in srv else "stdio")
+        try:
+            stype = McpServerType(raw_type)
+        except ValueError:
+            stype = McpServerType.STDIO
+
+        cfg.mcp_servers.append(
+            McpServer(
+                name=name,
+                server_type=stype,
+                url=srv.get("url"),
+                command=srv.get("command"),
+                args=srv.get("args", []),
+                headers=srv.get("headers", {}),
+                env=srv.get("env", {}),
+            )
+        )
+
+    return cfg
+
+
+# ---------------------------------------------------------------------------
 # Full canonical scan
 # ---------------------------------------------------------------------------
 
@@ -653,5 +693,7 @@ def scan_all_tools() -> dict[ToolName, ToolConfig]:
         tools[ToolName.CLAUDE] = scan_claude()
     if "codex" in enabled_tool_names:
         tools[ToolName.CODEX] = scan_codex()
-    
+    if "vscode" in enabled_tool_names:
+        tools[ToolName.VSCODE] = scan_vscode()
+
     return tools

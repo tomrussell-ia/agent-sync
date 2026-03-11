@@ -32,7 +32,7 @@ console = Console()
 # Shared option sets (applied via decorators on sub-commands)
 # ---------------------------------------------------------------------------
 
-_TOOL_CHOICE = click.Choice(["copilot", "claude", "codex"], case_sensitive=False)
+_TOOL_CHOICE = click.Choice(["copilot", "claude", "codex", "vscode"], case_sensitive=False)
 _TYPE_CHOICE = click.Choice(
     ["mcp", "skill", "command", "plugin", "infrastructure"], case_sensitive=False
 )
@@ -127,6 +127,7 @@ TOOL NAMES (--tool values)
   copilot   GitHub Copilot CLI (~/.copilot/)
   claude    Claude Code (~/.claude/)
   codex     OpenAI Codex CLI (~/.codex/)
+  vscode    VS Code MCP (~/.vscode/ / %APPDATA%/Code/User/mcp.json)
 """
 
 
@@ -139,10 +140,10 @@ def main(ctx: click.Context, agents_dir: str | None, verbose: bool) -> None:
     """Agent Sync \u2014 compare and repair AI agent configurations.
 
     Reads the canonical source of truth from ~/.agents/ and compares it
-    against GitHub Copilot CLI, Claude Code, and OpenAI Codex CLI configs.
-    Use 'check' to see drift, 'fix' to repair, and 'probe' to verify
-    runtime connectivity.  Pass --json to any command for structured output
-    suitable for programmatic / agent consumption.
+    against GitHub Copilot CLI, Claude Code, OpenAI Codex CLI, and VS Code
+    configs.  Use 'check' to see drift, 'fix' to repair, and 'probe' to
+    verify runtime connectivity.  Pass --json to any command for structured
+    output suitable for programmatic / agent consumption.
     """
     ctx.ensure_object(dict)
     ctx.obj["agents_dir"] = agents_dir
@@ -177,17 +178,17 @@ _CHECK_EPILOG = """
 JSON OUTPUT SCHEMA (--json)
   {
     "canonical":    { "agents_dir": "...", "mcp_servers": [...], ... },
-    "tool_configs": { "copilot": {...}, "claude": {...}, "codex": {...} },
+    "tool_configs": { "copilot": {...}, "claude": {...}, "codex": {...}, "vscode": {...} },
     "items": [
       {
         "content_type": "mcp"|"skill"|"command"|"symlink"|"config",
         "item_name":    "server-or-item-name",
-        "tool":         "copilot"|"claude"|"codex",
+        "tool":         "copilot"|"claude"|"codex"|"vscode",
         "status":       "synced"|"drift"|"missing"|"extra"|"n/a",
         "detail":       "human-readable explanation",
         "fix_action":   null | {
           "action":       "add-mcp"|"update-mcp"|"remove-mcp"|...,
-          "tool":         "copilot"|"claude"|"codex",
+          "tool":         "copilot"|"claude"|"codex"|"vscode",
           "content_type": "mcp"|"command"|...,
           "target":       "item-name",
           "detail":       "human-readable fix description"
@@ -226,6 +227,7 @@ EXAMPLES
   agent-sync check --json                        # full JSON report
   agent-sync check --json --tool claude           # only Claude items
   agent-sync check --json --tool copilot --type mcp  # Copilot MCP only
+  agent-sync check --json --tool vscode               # VS Code MCP only
   agent-sync check --quiet                        # exit code only
 """
 
@@ -240,8 +242,9 @@ def check(
     """Compare canonical ~/.agents/ config against all tool configs.
 
     Scans MCP servers, skills, commands, and infrastructure. Prints a
-    Rich table by default, or structured JSON with --json.  Exits 1 if
-    any drift or missing items are found in the (optionally filtered) set.
+    Rich table by default, or structured JSON with --json.  Includes VS
+    Code MCP sync status.  Exits 1 if any drift or missing items are found
+    in the (optionally filtered) set.
     """
     from agent_sync.scanner import scan_all_tools, scan_canonical
     from agent_sync.serializers import to_dict

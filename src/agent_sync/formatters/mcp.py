@@ -6,6 +6,7 @@ Reads canonical mcp.json and generates tool-specific config files.
 from __future__ import annotations
 
 import json
+import re
 import sys
 
 
@@ -24,6 +25,7 @@ from agent_sync.config import (
     CLAUDE_SETTINGS_JSON,
     CODEX_CONFIG_TOML,
     COPILOT_MCP_CONFIG_JSON,
+    VSCODE_MCP_JSON,
 )
 from agent_sync.models import McpServer, ToolName
 
@@ -236,3 +238,131 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     
     action = "Would write" if dry_run else "Wrote"
     return f"{action} Claude MCP ({settings_msg}, {desktop_msg})"
+
+
+# ---------------------------------------------------------------------------
+# VS Code format
+# ---------------------------------------------------------------------------
+
+
+def _header_input_id(header_key: str) -> str:
+    """Convert a header key to a VS Code input id (lowercase, underscores)."""
+    return re.sub(r"[^a-z0-9]", "_", header_key.lower()).strip("_")
+
+
+def generate_vscode_mcp(servers: list[McpServer]) -> dict:
+    """Build the VS Code user-level mcp.json structure from canonical servers.
+
+    VS Code format uses a ``servers`` object (matching canonical) and an
+    optional ``inputs`` array for prompting users for secret header values.
+    Header values that look like secrets (non-empty strings) are replaced with
+    a ``${input:<id>}`` reference and a corresponding input entry is added so
+    VS Code prompts the user on first use.
+    """
+    result: dict = {"servers": {}}
+    inputs: list[dict] = []
+    input_ids_seen: set[str] = set()
+
+    for srv in servers:
+        if ToolName.VSCODE not in srv.enabled_for:
+            continue
+
+        entry: dict = {"type": srv.server_type.value}
+
+        if srv.url:
+            entry["url"] = srv.url
+
+        if srv.command:
+            entry["command"] = srv.command
+
+        if srv.args:
+            entry["args"] = srv.args
+
+        if srv.env:
+            entry["env"] = srv.env
+
+        # Convert non-empty header values to ${input:id} references
+        if srv.headers:
+            converted_headers: dict[str, str] = {}
+            for key, value in srv.headers.items():
+                if value:  # non-empty — treat as secret
+                    input_id = _header_input_id(key)
+                    converted_headers[key] = f"${{input:{input_id}}}"
+                    if input_id not in input_ids_seen:
+                        inputs.append(
+                            {
+                                "id": input_id,
+                                "type": "promptString",
+                                "description": key,
+                                "password": True,
+                            }
+                        )
+                        input_ids_seen.add(input_id)
+                else:
+                    converted_headers[key] = value
+            if converted_headers:
+                entry["headers"] = converted_headers
+
+        result["servers"][srv.name] = entry
+
+    if inputs:
+        result["inputs"] = inputs
+
+    return result
+
+
+def write_vscode_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
+    """Write VS Code MCP config, merging with existing servers.
+
+    Reads the existing user-level mcp.json (if present), updates known
+    servers with canonical values, deduplicates the ``inputs`` array by id,
+    and writes the result back.
+
+    Returns a description of what was (or would be) done.
+    """
+    target = VSCODE_MCP_JSON
+
+    # Read existing to preserve servers not managed by agent-sync
+    existing_data: dict = {"servers": {}}
+    if target.exists():
+        try:
+            import json as _json
+            existing_data = _json.loads(target.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            existing_data = {"servers": {}}
+
+    new_data = generate_vscode_mcp(servers)
+
+    # Merge servers (canonical wins for known names)
+    merged: dict = existing_data.copy()
+    if "servers" not in merged:
+        merged["servers"] = {}
+    merged["servers"].update(new_data["servers"])
+
+    # Merge inputs — deduplicate by id (new wins)
+    existing_inputs: list[dict] = merged.get("inputs", [])
+    new_inputs: list[dict] = new_data.get("inputs", [])
+    new_input_ids = {inp["id"] for inp in new_inputs}
+    kept_existing = [inp for inp in existing_inputs if inp["id"] not in new_input_ids]
+    all_inputs = kept_existing + new_inputs
+    if all_inputs:
+        merged["inputs"] = all_inputs
+    elif "inputs" in merged:
+        del merged["inputs"]
+
+    new_text = json.dumps(merged, indent=2) + "\n"
+
+    if dry_run:
+        n_servers = len(new_data["servers"])
+        n_inputs = len(all_inputs)
+        return (
+            f"Would merge {n_servers} servers into {target}"
+            + (f" ({n_inputs} input prompt(s))" if n_inputs else "")
+        )
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(new_text, encoding="utf-8")
+    return (
+        f"Wrote {len(new_data['servers'])} VS Code MCP servers to {target}"
+        + (f" ({len(all_inputs)} input prompt(s))" if all_inputs else "")
+    )

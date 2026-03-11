@@ -41,13 +41,14 @@ class PathsConfig:
     claude_dir: Path | None = None
     codex_dir: Path | None = None
     ia_skills_hub: Path | None = None
+    vscode_user_dir: Path | None = None
 
 
 @dataclass
 class ToolsConfig:
     """Tool-specific settings."""
     
-    enabled: list[str] = field(default_factory=lambda: ["copilot", "claude", "codex"])
+    enabled: list[str] = field(default_factory=lambda: ["copilot", "claude", "codex", "vscode"])
     ignore_extra_servers: bool = False
 
 
@@ -105,6 +106,8 @@ def _parse_paths_section(data: dict[str, Any]) -> PathsConfig:
         paths.codex_dir = _expand_path(data["codex_dir"])
     if "ia_skills_hub" in data:
         paths.ia_skills_hub = _expand_path(data["ia_skills_hub"])
+    if "vscode_user_dir" in data:
+        paths.vscode_user_dir = _expand_path(data["vscode_user_dir"])
     return paths
 
 

@@ -6,6 +6,8 @@ overrides from ~/.agent-sync.toml user config.
 
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 
@@ -88,6 +90,37 @@ CLAUDE_SYMLINK_SKILLS = AGENTS_DIR / ".claude" / "skills"
 CODEX_CONFIG_TOML = CODEX_DIR / "config.toml"
 CODEX_PROMPTS_DIR = CODEX_DIR / "prompts"
 CODEX_SKILLS_DIR = CODEX_DIR / "skills"
+
+# ---------------------------------------------------------------------------
+# VS Code paths
+# ---------------------------------------------------------------------------
+
+
+def get_vscode_user_data_dir() -> Path:
+    """Get VS Code user data directory (cross-platform).
+
+    Respects user config override if set, otherwise resolves platform default:
+    - Windows: %APPDATA%/Code/User
+    - macOS:   ~/Library/Application Support/Code/User
+    - Linux:   $XDG_CONFIG_HOME/Code/User  (or ~/.config/Code/User)
+    """
+    config = _get_config()
+    if config.paths.vscode_user_dir:
+        return config.paths.vscode_user_dir
+
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA", "")
+        if appdata:
+            return Path(appdata) / "Code" / "User"
+        return HOME / "AppData" / "Roaming" / "Code" / "User"
+    if sys.platform == "darwin":
+        return HOME / "Library" / "Application Support" / "Code" / "User"
+    xdg = os.environ.get("XDG_CONFIG_HOME", "")
+    base = Path(xdg) if xdg else HOME / ".config"
+    return base / "Code" / "User"
+
+
+VSCODE_MCP_JSON = get_vscode_user_data_dir() / "mcp.json"
 
 # ---------------------------------------------------------------------------
 # Product workflow directories (auto-discovered, but known names listed)

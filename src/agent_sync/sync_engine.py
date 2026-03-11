@@ -12,6 +12,7 @@ from agent_sync.formatters.mcp import (
     write_claude_mcp,
     write_codex_mcp,
     write_copilot_mcp,
+    write_vscode_mcp,
 )
 from agent_sync.formatters.skills import (
     check_claude_additional_dirs,
@@ -75,7 +76,7 @@ def _compare_mcp(
         if _mcp_name_normalize(srv.name) in ignored_servers:
             continue
             
-        for tool_name in [ToolName.COPILOT, ToolName.CLAUDE, ToolName.CODEX]:
+        for tool_name in [ToolName.COPILOT, ToolName.CLAUDE, ToolName.CODEX, ToolName.VSCODE]:
             tc = tool_configs.get(tool_name)
             if not tc:
                 continue
@@ -285,6 +286,17 @@ def _compare_skills(
                         tool=tool_name,
                         status=SyncStatus.NOT_APPLICABLE,
                         detail="Codex uses built-in skills only",
+                    )
+                )
+            # VS Code MCP-only — skill sync not applicable
+            elif tool_name == ToolName.VSCODE:
+                items.append(
+                    SyncItem(
+                        content_type="skill",
+                        item_name=skill.name,
+                        tool=tool_name,
+                        status=SyncStatus.NOT_APPLICABLE,
+                        detail="VS Code MCP-only (no skill sync)",
                     )
                 )
             else:
@@ -573,6 +585,7 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
         copilot_servers: list[McpServer] = []
         codex_servers: list[McpServer] = []
         claude_servers: list[McpServer] = []
+        vscode_servers: list[McpServer] = []
         
         for item in mcp_actions:
             if item.fix_action.action in (FixActionType.ADD_MCP, FixActionType.UPDATE_MCP):
@@ -593,6 +606,8 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
                     codex_servers.append(canonical_server)
                 elif item.tool == ToolName.CLAUDE:
                     claude_servers.append(canonical_server)
+                elif item.tool == ToolName.VSCODE:
+                    vscode_servers.append(canonical_server)
         
         # Apply fixes per tool (batched)
         if copilot_servers:
@@ -607,6 +622,10 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
             actions.append(
                 f"MCP/claude: Skipped {len(claude_servers)} servers (manual configuration required via Claude Desktop)"
             )
+
+        if vscode_servers:
+            msg = write_vscode_mcp(vscode_servers, dry_run=dry_run)
+            actions.append(f"MCP/vscode: {msg}")
 
     # 2. Fix infrastructure (symlinks, additionalDirectories)
     claude_dirs_items = [

@@ -166,3 +166,105 @@ class TestScanCanonicalMcp:
         monkeypatch.setattr(scanner_mod, "_read_json", lambda _path: {})
         servers = scanner_mod.scan_canonical_mcp()
         assert servers == []
+
+
+# ---------------------------------------------------------------------------
+# VS Code scanner tests
+# ---------------------------------------------------------------------------
+
+
+class TestScanVsCode:
+    """Test VS Code MCP scanner."""
+
+    def test_parses_http_server(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """HTTP server with url is parsed correctly."""
+        mcp_json = tmp_path / "mcp.json"
+        mcp_json.write_text(
+            '{"servers": {"MyServer": {"type": "http", "url": "https://example.com/mcp"}}}'
+        )
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", mcp_json)
+
+        cfg = scanner_mod.scan_vscode()
+        assert cfg.tool == ToolName.VSCODE
+        assert len(cfg.mcp_servers) == 1
+        srv = cfg.mcp_servers[0]
+        assert srv.name == "MyServer"
+        assert srv.server_type == McpServerType.HTTP
+        assert srv.url == "https://example.com/mcp"
+
+    def test_parses_stdio_server(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """Stdio server with command/args is parsed correctly."""
+        mcp_json = tmp_path / "mcp.json"
+        mcp_json.write_text(
+            '{"servers": {"Playwright": {"type": "stdio", "command": "npx", "args": ["@playwright/mcp@latest"]}}}'
+        )
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", mcp_json)
+
+        cfg = scanner_mod.scan_vscode()
+        srv = cfg.mcp_servers[0]
+        assert srv.name == "Playwright"
+        assert srv.server_type == McpServerType.STDIO
+        assert srv.command == "npx"
+        assert srv.args == ["@playwright/mcp@latest"]
+
+    def test_infers_type_from_url(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """Server without explicit type but with url is inferred as http."""
+        mcp_json = tmp_path / "mcp.json"
+        mcp_json.write_text(
+            '{"servers": {"NoType": {"url": "https://example.com/mcp"}}}'
+        )
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", mcp_json)
+
+        cfg = scanner_mod.scan_vscode()
+        assert cfg.mcp_servers[0].server_type == McpServerType.HTTP
+
+    def test_infers_type_from_command(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """Server without explicit type but with command is inferred as stdio."""
+        mcp_json = tmp_path / "mcp.json"
+        mcp_json.write_text(
+            '{"servers": {"NoType": {"command": "npx", "args": ["-y", "tool"]}}}'
+        )
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", mcp_json)
+
+        cfg = scanner_mod.scan_vscode()
+        assert cfg.mcp_servers[0].server_type == McpServerType.STDIO
+
+    def test_missing_file_returns_empty_config(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """When mcp.json doesn't exist, returns an empty ToolConfig."""
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", tmp_path / "nonexistent.json")
+
+        cfg = scanner_mod.scan_vscode()
+        assert cfg.tool == ToolName.VSCODE
+        assert cfg.mcp_servers == []
+
+    def test_parses_multiple_servers(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """Multiple servers are all parsed regardless of type."""
+        import json as _json
+
+        mcp_json = tmp_path / "mcp.json"
+        data = {
+            "servers": {
+                "HttpSrv": {"type": "http", "url": "https://a.com"},
+                "StdioSrv": {"type": "stdio", "command": "npx", "args": ["-y", "tool"]},
+                "LocalSrv": {"type": "local", "command": "npx", "args": ["@playwright/mcp@latest"]},
+            }
+        }
+        mcp_json.write_text(_json.dumps(data))
+        import agent_sync.scanner as scanner_mod
+
+        monkeypatch.setattr(scanner_mod, "VSCODE_MCP_JSON", mcp_json)
+
+        cfg = scanner_mod.scan_vscode()
+        assert len(cfg.mcp_servers) == 3
+        names = {s.name for s in cfg.mcp_servers}
+        assert names == {"HttpSrv", "StdioSrv", "LocalSrv"}
