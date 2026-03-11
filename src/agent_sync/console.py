@@ -30,7 +30,7 @@ if _USE_EMOJI:
         SyncStatus.SYNCED: ("✅", "green"),
         SyncStatus.DRIFT: ("⚠️", "yellow"),
         SyncStatus.MISSING: ("❌", "red"),
-        SyncStatus.EXTRA: ("➕", "cyan"),
+        SyncStatus.EXTRA: ("➕", "cyan"),  # noqa: RUF001
         SyncStatus.NOT_APPLICABLE: ("—", "dim"),
     }
     PROBE_STYLE = {
@@ -62,7 +62,7 @@ def _icon(status: SyncStatus) -> str:
     return icon
 
 
-def print_report(report: SyncReport, *, items: list | None = None) -> None:
+def print_report(report: SyncReport, *, items: list | None = None) -> None:  # noqa: C901, PLR0912, PLR0915
     """Print a full sync report to the Rich console.
 
     Parameters
@@ -164,7 +164,7 @@ def print_report(report: SyncReport, *, items: list | None = None) -> None:
             )
         console.print(table)
 
-    # Skills summary (grouped, not one row per tool×skill)
+    # Skills summary (grouped, not one row per tool x skill)
     skill_items = [i for i in display_items if i.content_type == "skill"]
     if skill_items:
         by_name: dict[str, dict[str, SyncStatus]] = {}
@@ -243,7 +243,7 @@ def _fmt_latency(ms: float | None) -> str:
     return f"{ms / 1000:.1f}s"
 
 
-def print_probe_report(report: ProbeReport, *, verbose: bool = False) -> None:
+def print_probe_report(report: ProbeReport, *, verbose: bool = False) -> None:  # noqa: C901, PLR0912, PLR0915
     """Print the runtime probe report to the Rich console."""
     console.print()
 

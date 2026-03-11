@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from agent_sync.cli import _filter_items, _filter_probe_results
 from agent_sync.log_parser import LogError, LogReport, McpLogEvent
 from agent_sync.models import (
     CanonicalState,
@@ -313,8 +314,6 @@ class TestFilterHelpers:
     """Test the _filter_items and _filter_probe_results functions."""
 
     def test_filter_by_tool(self):
-        from agent_sync.cli import _filter_items
-
         items = [
             SyncItem("mcp", "a", ToolName.COPILOT, SyncStatus.SYNCED),
             SyncItem("mcp", "a", ToolName.CLAUDE, SyncStatus.DRIFT),
@@ -325,8 +324,6 @@ class TestFilterHelpers:
         assert result[0].tool == ToolName.CLAUDE
 
     def test_filter_by_type(self):
-        from agent_sync.cli import _filter_items
-
         items = [
             SyncItem("mcp", "srv", ToolName.COPILOT, SyncStatus.SYNCED),
             SyncItem("command", "cmd", ToolName.COPILOT, SyncStatus.DRIFT),
@@ -337,8 +334,6 @@ class TestFilterHelpers:
         assert result[0].content_type == "command"
 
     def test_filter_infrastructure(self):
-        from agent_sync.cli import _filter_items
-
         items = [
             SyncItem("symlink", "sym", ToolName.CLAUDE, SyncStatus.MISSING),
             SyncItem("config", "cfg", ToolName.CLAUDE, SyncStatus.MISSING),
@@ -349,8 +344,6 @@ class TestFilterHelpers:
         assert all(i.content_type in ("symlink", "config") for i in result)
 
     def test_filter_combined(self):
-        from agent_sync.cli import _filter_items
-
         items = [
             SyncItem("mcp", "srv", ToolName.COPILOT, SyncStatus.SYNCED),
             SyncItem("mcp", "srv", ToolName.CLAUDE, SyncStatus.DRIFT),
@@ -362,8 +355,6 @@ class TestFilterHelpers:
         assert result[0].content_type == "mcp"
 
     def test_no_filter_returns_all(self):
-        from agent_sync.cli import _filter_items
-
         items = [
             SyncItem("mcp", "a", ToolName.COPILOT, SyncStatus.SYNCED),
             SyncItem("mcp", "b", ToolName.CLAUDE, SyncStatus.DRIFT),
@@ -372,8 +363,6 @@ class TestFilterHelpers:
         assert len(result) == 2
 
     def test_filter_probe_results(self):
-        from agent_sync.cli import _filter_probe_results
-
         results = [
             ProbeResult(
                 "sdk", ProbeTargetType.COPILOT_SDK, tool=ToolName.COPILOT, status=ProbeStatus.OK
@@ -387,8 +376,6 @@ class TestFilterHelpers:
         assert filtered[0].target == "sdk"
 
     def test_filter_probe_no_filter(self):
-        from agent_sync.cli import _filter_probe_results
-
         results = [
             ProbeResult("a", ProbeTargetType.MCP_HTTP, tool=ToolName.COPILOT),
             ProbeResult("b", ProbeTargetType.MCP_HTTP, tool=ToolName.CLAUDE),

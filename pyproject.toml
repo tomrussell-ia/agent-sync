@@ -116,6 +116,8 @@ ignore = [
     "PLR2004", # magic values OK in tests
     "S106",   # hardcoded password OK in tests
 ]
+"src/agent_sync/cli.py" = ["FBT001", "FBT002"]
+"src/agent_sync/user_config.py" = ["FBT001", "FBT002", "PLW0603"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["agent_sync"]

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+
 if sys.version_info >= (3, 12):
     import tomllib
 else:
@@ -35,7 +36,7 @@ USER_CONFIG_PATH = Path.home() / ".agent-sync.toml"
 @dataclass
 class PathsConfig:
     """Path overrides for tool directories."""
-    
+
     agents_dir: Path | None = None
     copilot_dir: Path | None = None
     claude_dir: Path | None = None
@@ -55,7 +56,7 @@ class ToolsConfig:
 @dataclass
 class McpConfig:
     """MCP server settings."""
-    
+
     ignore_servers: list[str] = field(default_factory=list)
     force_user_scope: bool = False
 
@@ -63,7 +64,7 @@ class McpConfig:
 @dataclass
 class ScanConfig:
     """Scan behavior settings."""
-    
+
     product_dirs: list[Path] = field(default_factory=list)
     skip_validation: bool = False
 
@@ -71,7 +72,7 @@ class ScanConfig:
 @dataclass
 class OutputConfig:
     """Output preferences."""
-    
+
     format: str = "auto"  # auto, json, table, dashboard
     verbosity: str = "normal"  # quiet, normal, verbose
     color: str = "auto"  # auto, always, never
@@ -80,7 +81,7 @@ class OutputConfig:
 @dataclass
 class UserConfig:
     """Complete user configuration."""
-    
+
     paths: PathsConfig = field(default_factory=PathsConfig)
     tools: ToolsConfig = field(default_factory=ToolsConfig)
     mcp: McpConfig = field(default_factory=McpConfig)
@@ -155,99 +156,104 @@ def _parse_output_section(data: dict[str, Any]) -> OutputConfig:
 
 def load_user_config(config_path: Path | None = None) -> UserConfig:
     """Load user configuration from TOML file.
-    
+
     Args:
         config_path: Optional path to config file. Defaults to ~/.agent-sync.toml
-        
+
     Returns:
         UserConfig with values from file, or defaults if file doesn't exist
-        
+
     Raises:
         ValueError: If config file has syntax errors or invalid values
     """
     if config_path is None:
         config_path = Path.home() / ".agent-sync.toml"
-    
+
     # If config doesn't exist, return defaults
     if not config_path.exists():
         return UserConfig()
-    
+
     # Parse TOML
     try:
-        with open(config_path, "rb") as f:
+        with config_path.open("rb") as f:
             data = tomllib.load(f)
     except Exception as e:
-        raise ValueError(f"Failed to parse config file {config_path}: {e}") from e
-    
+        msg = f"Failed to parse config file {config_path}: {e}"
+        raise ValueError(msg) from e
+
     # Build config from sections
     config = UserConfig()
-    
+
     if "paths" in data:
         config.paths = _parse_paths_section(data["paths"])
-    
+
     if "tools" in data:
         config.tools = _parse_tools_section(data["tools"])
-    
+
     if "mcp" in data:
         config.mcp = _parse_mcp_section(data["mcp"])
-    
+
     if "scan" in data:
         config.scan = _parse_scan_section(data["scan"])
-    
+
     if "output" in data:
         config.output = _parse_output_section(data["output"])
-    
+
     return config
 
 
 def validate_user_config(config: UserConfig) -> list[str]:
     """Validate user config and return list of warnings/errors.
-    
+
     Args:
         config: UserConfig to validate
-        
+
     Returns:
         List of warning/error messages (empty if valid)
     """
     warnings: list[str] = []
-    
+
     # Validate paths exist
     if config.paths.agents_dir and not config.paths.agents_dir.exists():
         warnings.append(f"agents_dir does not exist: {config.paths.agents_dir}")
-    
+
     if config.paths.copilot_dir and not config.paths.copilot_dir.exists():
         warnings.append(f"copilot_dir does not exist: {config.paths.copilot_dir}")
-    
+
     if config.paths.claude_dir and not config.paths.claude_dir.exists():
         warnings.append(f"claude_dir does not exist: {config.paths.claude_dir}")
-    
+
     if config.paths.codex_dir and not config.paths.codex_dir.exists():
         warnings.append(f"codex_dir does not exist: {config.paths.codex_dir}")
-    
+
     if config.paths.ia_skills_hub and not config.paths.ia_skills_hub.exists():
         warnings.append(f"ia_skills_hub does not exist: {config.paths.ia_skills_hub}")
-    
+
     # Validate tool names
     valid_tools = {"copilot", "claude", "codex"}
-    for tool in config.tools.enabled:
-        if tool not in valid_tools:
-            warnings.append(f"Unknown tool in tools.enabled: {tool} (valid: {valid_tools})")
-    
+    warnings.extend(
+        f"Unknown tool in tools.enabled: {tool} (valid: {valid_tools})"
+        for tool in config.tools.enabled
+        if tool not in valid_tools
+    )
+
     # Validate output format
     valid_formats = {"auto", "json", "table", "dashboard"}
     if config.output.format not in valid_formats:
         warnings.append(f"Invalid output.format: {config.output.format} (valid: {valid_formats})")
-    
+
     # Validate verbosity
     valid_verbosity = {"quiet", "normal", "verbose"}
     if config.output.verbosity not in valid_verbosity:
-        warnings.append(f"Invalid output.verbosity: {config.output.verbosity} (valid: {valid_verbosity})")
-    
+        warnings.append(
+            f"Invalid output.verbosity: {config.output.verbosity} (valid: {valid_verbosity})"
+        )
+
     # Validate color
     valid_color = {"auto", "always", "never"}
     if config.output.color not in valid_color:
         warnings.append(f"Invalid output.color: {config.output.color} (valid: {valid_color})")
-    
+
     return warnings
 
 
@@ -257,10 +263,10 @@ _user_config: UserConfig | None = None
 
 def get_user_config(reload: bool = False) -> UserConfig:
     """Get the global user config instance.
-    
+
     Args:
         reload: If True, reload config from disk
-        
+
     Returns:
         Global UserConfig instance
     """

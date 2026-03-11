@@ -10,10 +10,10 @@ import os
 import sys
 from pathlib import Path
 
+from agent_sync.user_config import get_user_config
+
 
 def _get_config():
-    """Lazy import to avoid circular dependencies."""
-    from agent_sync.user_config import get_user_config
     return get_user_config()
 
 
@@ -132,15 +132,16 @@ KNOWN_PRODUCTS = ["LoadSEERNext", "LSStudio", "atlas-viewer"]
 # ia-skills-hub plugin repository
 # ---------------------------------------------------------------------------
 
+
 def get_ia_skills_hub_dir() -> Path | None:
     """Get ia-skills-hub directory (respects user config override).
-    
+
     Returns path if configured or auto-discovered, None otherwise.
     """
     config = _get_config()
     if config.paths.ia_skills_hub:
         return config.paths.ia_skills_hub
-    
+
     # Auto-discover from common paths
     common_paths = [
         HOME / "repos" / "github.com" / "integralanalytics" / "ia-skills-hub",

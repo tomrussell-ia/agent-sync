@@ -57,7 +57,7 @@ def generate_copilot_mcp(servers: list[McpServer]) -> dict:
 def write_copilot_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     """Write Copilot MCP config, merging with existing servers. Returns description of what was/would be done."""
     target = COPILOT_MCP_CONFIG_JSON
-    
+
     # Read existing config to preserve servers not in canonical
     existing_data = {"mcpServers": {}}
     if target.exists():
@@ -65,16 +65,16 @@ def write_copilot_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str
             existing_data = json.loads(target.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, FileNotFoundError):
             existing_data = {"mcpServers": {}}
-    
+
     # Generate new servers from canonical
     new_data = generate_copilot_mcp(servers)
-    
+
     # Merge: update existing with new servers (preserves servers not in canonical)
     merged_data = existing_data.copy()
     if "mcpServers" not in merged_data:
         merged_data["mcpServers"] = {}
     merged_data["mcpServers"].update(new_data["mcpServers"])
-    
+
     new_text = json.dumps(merged_data, indent=2) + "\n"
 
     if dry_run:
@@ -154,7 +154,7 @@ def generate_claude_mcp_permissions(servers: list[McpServer]) -> list[str]:
     return perms
 
 
-def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
+def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:  # noqa: C901, PLR0912, PLR0915
     """Write Claude MCP config to both settings.json and Desktop config.
 
     Updates:
@@ -164,30 +164,32 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
     Returns description of what was/would be done.
     """
     perms = generate_claude_mcp_permissions(servers)
-    
+
     # Update settings.json (permissions)
     settings_target = CLAUDE_SETTINGS_JSON
     settings_msg = ""
-    
+
     if settings_target.exists():
         try:
             existing = json.loads(settings_target.read_text(encoding="utf-8"))
-            
+
             # Get current permissions, preserving structure
             if "permissions" not in existing:
                 existing["permissions"] = {}
             if "allow" not in existing["permissions"]:
                 existing["permissions"]["allow"] = []
-            
+
             # Filter out old MCP permissions
             old_allow = existing["permissions"]["allow"]
-            non_mcp_perms = [p for p in old_allow if not (isinstance(p, str) and p.startswith("mcp__"))]
-            
+            non_mcp_perms = [
+                p for p in old_allow if not (isinstance(p, str) and p.startswith("mcp__"))
+            ]
+
             # Add new MCP permissions
             existing["permissions"]["allow"] = non_mcp_perms + perms
-            
+
             new_text = json.dumps(existing, indent=2) + "\n"
-            
+
             if not dry_run:
                 settings_target.write_text(new_text, encoding="utf-8")
             settings_msg = f"permissions: {len(perms)} entries"
@@ -195,24 +197,24 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
             settings_msg = f"Error: {e}"
     else:
         settings_msg = "settings.json not found"
-    
+
     # Update claude_desktop_config.json (full server definitions)
     desktop_target = CLAUDE_DESKTOP_CONFIG_JSON
     desktop_msg = ""
-    
+
     if desktop_target.exists():
         try:
             existing = json.loads(desktop_target.read_text(encoding="utf-8"))
-            
+
             # Ensure mcpServers exists
             if "mcpServers" not in existing:
                 existing["mcpServers"] = {}
-            
+
             # Merge new servers with existing
             for srv in servers:
                 if ToolName.CLAUDE not in srv.enabled_for:
                     continue
-                
+
                 entry: dict = {}
                 if srv.url:
                     entry["type"] = "http"
@@ -223,19 +225,21 @@ def write_claude_mcp(servers: list[McpServer], *, dry_run: bool = False) -> str:
                     entry["command"] = srv.command
                 if srv.args:
                     entry["args"] = srv.args
-                
+
                 existing["mcpServers"][srv.name] = entry
-            
+
             new_text = json.dumps(existing, indent=2) + "\n"
-            
+
             if not dry_run:
                 desktop_target.write_text(new_text, encoding="utf-8")
-            desktop_msg = f"desktop: {len([s for s in servers if ToolName.CLAUDE in s.enabled_for])} servers"
+            desktop_msg = (
+                f"desktop: {len([s for s in servers if ToolName.CLAUDE in s.enabled_for])} servers"
+            )
         except (json.JSONDecodeError, OSError) as e:
             desktop_msg = f"Error: {e}"
     else:
         desktop_msg = "desktop config not found"
-    
+
     action = "Would write" if dry_run else "Wrote"
     return f"{action} Claude MCP ({settings_msg}, {desktop_msg})"
 

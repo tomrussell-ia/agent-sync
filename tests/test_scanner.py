@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from agent_sync import scanner as scanner_mod
 from agent_sync.models import McpServerType, ToolName
 from agent_sync.scanner import (
     _body_hash,
@@ -126,8 +127,6 @@ class TestScanCanonicalMcp:
 
     def test_scan_fixture(self, monkeypatch: pytest.MonkeyPatch):
         """Provide fixture MCP data via monkeypatched _read_json."""
-        from agent_sync import scanner as scanner_mod
-
         mcp_data = {
             "servers": {
                 "TestServer": {
@@ -161,8 +160,6 @@ class TestScanCanonicalMcp:
         assert ToolName.CODEX in local_srv.enabled_for
 
     def test_missing_mcp_json(self, monkeypatch: pytest.MonkeyPatch):
-        from agent_sync import scanner as scanner_mod
-
         monkeypatch.setattr(scanner_mod, "_read_json", lambda _path: {})
         servers = scanner_mod.scan_canonical_mcp()
         assert servers == []
