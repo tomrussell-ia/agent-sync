@@ -33,7 +33,7 @@ STATUS_ICONS = {
     SyncStatus.SYNCED: ("✅", "green"),
     SyncStatus.DRIFT: ("⚠️", "yellow"),
     SyncStatus.MISSING: ("❌", "red"),
-    SyncStatus.EXTRA: ("➕", "cyan"),
+    SyncStatus.EXTRA: ("➕", "cyan"),  # noqa: RUF001
     SyncStatus.NOT_APPLICABLE: ("—", "dim"),
 }
 
@@ -64,7 +64,7 @@ def build_overview_table(report: SyncReport) -> Table:
     table.add_row("✅ Synced", Text(str(report.synced_count), style="green"))
     table.add_row("⚠️  Drift", Text(str(report.drift_count), style="yellow"))
     table.add_row("❌ Missing", Text(str(report.missing_count), style="red"))
-    table.add_row("➕ Extra", Text(str(report.extra_count), style="cyan"))
+    table.add_row("➕ Extra", Text(str(report.extra_count), style="cyan"))  # noqa: RUF001
     table.add_row("🔧 Fixable", Text(str(report.fixable_count), style="blue"))
     table.add_row(
         "Overall",
@@ -101,10 +101,7 @@ def build_mcp_table(report: SyncReport) -> Table:
         claude = tools.get(ToolName.CLAUDE)
         codex = tools.get(ToolName.CODEX)
 
-        details: list[str] = []
-        for item in tools.values():
-            if item.detail:
-                details.append(item.detail)
+        details: list[str] = [item.detail for item in tools.values() if item.detail]
 
         table.add_row(
             name,
@@ -167,10 +164,7 @@ def build_commands_table(report: SyncReport) -> Table:
         claude = tools.get(ToolName.CLAUDE)
         codex = tools.get(ToolName.CODEX)
 
-        details: list[str] = []
-        for item in tools.values():
-            if item.detail:
-                details.append(item.detail)
+        details: list[str] = [item.detail for item in tools.values() if item.detail]
 
         table.add_row(
             name,
@@ -290,7 +284,7 @@ class SyncDashboard(App):
         margin: 0 1;
     }
     """
-    BINDINGS = [
+    BINDINGS = [  # noqa: RUF012
         Binding("f", "fix", "Fix All"),
         Binding("d", "dry_run", "Dry Run"),
         Binding("r", "refresh", "Refresh"),

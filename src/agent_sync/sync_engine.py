@@ -5,11 +5,12 @@ Also provides fix operations that apply changes to bring tools in sync.
 
 from __future__ import annotations
 
+import re
+
 from agent_sync.formatters.commands import (
     sync_commands,
 )
 from agent_sync.formatters.mcp import (
-    write_claude_mcp,
     write_codex_mcp,
     write_copilot_mcp,
 )
@@ -25,12 +26,14 @@ from agent_sync.models import (
     CanonicalState,
     FixAction,
     FixActionType,
+    McpServer,
     SyncItem,
     SyncReport,
     SyncStatus,
     ToolConfig,
     ToolName,
 )
+from agent_sync.user_config import get_user_config
 
 
 # ---------------------------------------------------------------------------
@@ -45,8 +48,6 @@ def _mcp_name_normalize(name: str) -> str:
     ``MicrosoftLearn``, ``microsoft-learn``, and ``Microsoft_Learn``
     all normalise to ``microsoftlearn``.
     """
-    import re
-
     return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
@@ -55,26 +56,24 @@ def _mcp_name_normalize(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _compare_mcp(
+def _compare_mcp(  # noqa: C901, PLR0912
     canonical: CanonicalState,
     tool_configs: dict[ToolName, ToolConfig],
 ) -> list[SyncItem]:
     """Compare canonical MCP servers against each tool's config.
-    
+
     Respects user config mcp.ignore_servers to skip specific servers.
     """
-    from agent_sync.user_config import get_user_config
-    
     user_cfg = get_user_config()
     ignored_servers = {_mcp_name_normalize(name) for name in user_cfg.mcp.ignore_servers}
-    
+
     items: list[SyncItem] = []
 
     for srv in canonical.mcp_servers:
         # Skip ignored servers
         if _mcp_name_normalize(srv.name) in ignored_servers:
             continue
-            
+
         for tool_name in [ToolName.COPILOT, ToolName.CLAUDE, ToolName.CODEX]:
             tc = tool_configs.get(tool_name)
             if not tc:
@@ -159,11 +158,11 @@ def _compare_mcp(
     for tool_name, tc in tool_configs.items():
         for ts in tc.mcp_servers:
             norm_name = _mcp_name_normalize(ts.name)
-            
+
             # Skip if in canonical or ignored
             if norm_name in canonical_names or norm_name in ignored_servers:
                 continue
-            
+
             # Only flag as drift if ignore_extra_servers is False
             if not user_cfg.tools.ignore_extra_servers:
                 items.append(
@@ -290,11 +289,11 @@ def _compare_skills(
             else:
                 # Skill not found by scanner - report as missing with actionable detail
                 detail = f"Not accessible in {tool_name.value}"
-                if tool_name == ToolName.CLAUDE and not claude_dirs_ok:
+                if (tool_name == ToolName.CLAUDE and not claude_dirs_ok) or (
+                    tool_name == ToolName.COPILOT and not copilot_dirs_ok
+                ):
                     detail = "Configure additionalDirectories to access"
-                elif tool_name == ToolName.COPILOT and not copilot_dirs_ok:
-                    detail = "Configure additionalDirectories to access"
-                
+
                 items.append(
                     SyncItem(
                         content_type="skill",
@@ -313,7 +312,7 @@ def _compare_skills(
 # ---------------------------------------------------------------------------
 
 
-def _compare_commands(
+def _compare_commands(  # noqa: C901, PLR0912
     canonical: CanonicalState,
     tool_configs: dict[ToolName, ToolConfig],
 ) -> list[SyncItem]:
@@ -559,7 +558,7 @@ def build_sync_report(
 # ---------------------------------------------------------------------------
 
 
-def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
+def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:  # noqa: C901, PLR0912
     """Apply all available fixes from the sync report.
 
     Returns list of action descriptions.
@@ -573,7 +572,7 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
         copilot_servers: list[McpServer] = []
         codex_servers: list[McpServer] = []
         claude_servers: list[McpServer] = []
-        
+
         for item in mcp_actions:
             if item.fix_action.action in (FixActionType.ADD_MCP, FixActionType.UPDATE_MCP):
                 # Find canonical server
@@ -582,10 +581,10 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
                     if srv.name == item.item_name:
                         canonical_server = srv
                         break
-                
+
                 if not canonical_server:
                     continue
-                
+
                 # Route to appropriate tool
                 if item.tool == ToolName.COPILOT:
                     copilot_servers.append(canonical_server)
@@ -593,16 +592,16 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
                     codex_servers.append(canonical_server)
                 elif item.tool == ToolName.CLAUDE:
                     claude_servers.append(canonical_server)
-        
+
         # Apply fixes per tool (batched)
         if copilot_servers:
             msg = write_copilot_mcp(copilot_servers, dry_run=dry_run)
             actions.append(f"MCP/copilot: {msg}")
-        
+
         if codex_servers:
             msg = write_codex_mcp(codex_servers, dry_run=dry_run)
             actions.append(f"MCP/codex: {msg}")
-        
+
         if claude_servers:
             actions.append(
                 f"MCP/claude: Skipped {len(claude_servers)} servers (manual configuration required via Claude Desktop)"
@@ -610,16 +609,20 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
 
     # 2. Fix infrastructure (symlinks, additionalDirectories)
     claude_dirs_items = [
-        i for i in report.items 
-        if i.content_type == "config" and i.item_name == "claude-additional-dirs" 
+        i
+        for i in report.items
+        if i.content_type == "config"
+        and i.item_name == "claude-additional-dirs"
         and i.status != SyncStatus.SYNCED
     ]
     if claude_dirs_items:
         actions.append(fix_claude_additional_dirs(dry_run=dry_run))
 
     copilot_dirs_items = [
-        i for i in report.items 
-        if i.content_type == "config" and i.item_name == "copilot-additional-dirs" 
+        i
+        for i in report.items
+        if i.content_type == "config"
+        and i.item_name == "copilot-additional-dirs"
         and i.status != SyncStatus.SYNCED
     ]
     if copilot_dirs_items:
@@ -643,4 +646,3 @@ def apply_fixes(report: SyncReport, *, dry_run: bool = False) -> list[str]:
             actions.extend(sync_commands(report.canonical.commands, dry_run=dry_run))
 
     return actions
-

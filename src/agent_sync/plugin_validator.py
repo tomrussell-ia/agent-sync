@@ -42,9 +42,9 @@ def _validate_plugin_json(path: Path) -> tuple[bool, list[str]]:
     if not isinstance(data, dict):
         return False, ["Expected a JSON object at top level"]
 
-    for key in _REQUIRED_PLUGIN_KEYS:
-        if key not in data:
-            errors.append(f"Missing required key: {key}")
+    errors.extend(
+        f"Missing required key: {key}" for key in _REQUIRED_PLUGIN_KEYS if key not in data
+    )
 
     # Check that referenced paths actually exist
     plugin_dir = path.parent
@@ -155,13 +155,6 @@ def validate_plugins(
 
 def _discover_plugin_dirs(root: Path) -> list[Path]:
     """Find directories that look like plugins (contain plugin.json or .mcp.json)."""
-    results: list[Path] = []
-
-    for path in root.rglob("plugin.json"):
-        results.append(path.parent)
-
-    for path in root.rglob(".mcp.json"):
-        if path.parent not in results:
-            results.append(path.parent)
-
+    results: list[Path] = [path.parent for path in root.rglob("plugin.json")]
+    results += [path.parent for path in root.rglob(".mcp.json") if path.parent not in results]
     return sorted(results)
