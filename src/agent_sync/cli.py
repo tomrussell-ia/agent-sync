@@ -314,8 +314,8 @@ def fix(
     dry_run: bool,
     json_output: bool,
     quiet: bool,
-    _tool: str | None,
-    _content_type: str | None,
+    tool: str | None,
+    content_type: str | None,
 ) -> None:
     """Apply all sync fixes to bring tools in line with canonical config.
 
