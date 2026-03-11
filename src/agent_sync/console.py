@@ -176,6 +176,7 @@ def print_report(report: SyncReport, *, items: list | None = None) -> None:  # n
         table.add_column("Copilot", justify="center")
         table.add_column("Claude", justify="center")
         table.add_column("Codex", justify="center")
+        table.add_column("VS Code", justify="center")
 
         for name, statuses in sorted(by_name.items()):
             table.add_row(
@@ -183,6 +184,7 @@ def print_report(report: SyncReport, *, items: list | None = None) -> None:  # n
                 _icon(statuses.get("copilot", SyncStatus.NOT_APPLICABLE)),
                 _icon(statuses.get("claude", SyncStatus.NOT_APPLICABLE)),
                 _icon(statuses.get("codex", SyncStatus.NOT_APPLICABLE)),
+                _icon(statuses.get("vscode", SyncStatus.NOT_APPLICABLE)),
             )
         console.print(table)
 

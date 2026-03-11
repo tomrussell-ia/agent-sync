@@ -83,6 +83,7 @@ def build_mcp_table(report: SyncReport) -> Table:
     table.add_column("Copilot", justify="center")
     table.add_column("Claude", justify="center")
     table.add_column("Codex", justify="center")
+    table.add_column("VS Code", justify="center")
     table.add_column("Detail")
 
     # Group items by server name
@@ -100,6 +101,7 @@ def build_mcp_table(report: SyncReport) -> Table:
         copilot = tools.get(ToolName.COPILOT)
         claude = tools.get(ToolName.CLAUDE)
         codex = tools.get(ToolName.CODEX)
+        vscode = tools.get(ToolName.VSCODE)
 
         details: list[str] = [item.detail for item in tools.values() if item.detail]
 
@@ -109,6 +111,7 @@ def build_mcp_table(report: SyncReport) -> Table:
             _icon(copilot.status) if copilot else Text("—", style="dim"),
             _icon(claude.status) if claude else Text("—", style="dim"),
             _icon(codex.status) if codex else Text("—", style="dim"),
+            _icon(vscode.status) if vscode else Text("—", style="dim"),
             "; ".join(details[:2]) if details else "",
         )
 
